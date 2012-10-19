@@ -245,40 +245,47 @@ which may be performed with the \texttt{groupby} tool.
 
 \texttt{tabularize} positions one-dimensional labeled series of data in a
 multi-dimensional array. We assume that the input is a stream of data rows,
-each of which consists of several columns. It is expected that the first row
-contains the column headers as the columns are referenced by name in the results.
-Note however that in the input the column indices are expected.
+each of which consists of several columns. It is expected that the first input 
+row contains the input column headers as the input columns are referenced by the
+name in the results. Note however that in the command line options the input
+column \textit{indices} are expected.
 
 In order to spread the data in space we first divide the columns into the
 label columns and the data columns.
 
 \subsubsection{Label columns}
 The label columns are used to determine the position, so that one or more values
-from the label columns build a single \textit{coordinate}.
+from the label columns build a single \textit{coordinate}. The coordinate may
+indicate a page, row or columns in the output table.
 
 \subsubsection{Data columns}
 The columns which aren't selected as the label columns are implicitly treated as
-the data columns and the values they store is to be placed inside the output
+the data columns and the values they store are to be placed inside the output
 arrays.
 
+\paragraph{Note}
+Both, the input and output, are in form of a data table. Therefore it is important
+to distinguish, where the input rows/columns are refered to and when the output
+structure that is described. Therefore in this manual care has been taken 
+to explicitly indicate, which ones are mentioned, even if it makes the text
+noticably irritating.
+
 \subsubsection{Input}
-Three dimensions are considered:
+Three dimensions of the result can be defined:
 
 \begin{itemize}
 	\item \textit{pages} -- Optionnaly multiple tables may be build. Each
 		of the tables is considered a page.
-	\item \textit{rows} -- The rows in the table. This set will define rows
-		for each page.
-	\item \textit{columns} -- The columns in the table. The columns set
-		defines the columns in each of the pages.
+	\item \textit{rows} -- The rows in the output table. This set will define
+		rows for each page.
+	\item \textit{columns} -- The columns in the output table. The columns
+		set defines the columns in each of the pages.
 \end{itemize}
 
 The pages coordinate is optional, but the columns sets for the rows and columns
 must be provided.
 
-Also note that for all the input data rows, the coordinates must be unique!
-
-\subsubsection{How are the dimensions defined}
+\subsubsection{How are the dimensions defined?}
 Let's assume that we want to define a table so that there are two row columns,
 say "col1" and "col2". The way the columns of the result table will be filled
 is that all the values that are placed in a given row come from the input data
@@ -288,13 +295,26 @@ Accordingly we must define the output columns in terms of a set of input columns
 so that each of the values that is placed in a given output column comes from
 an input data row that has the same values in the according columns.
 
-The same may be told about the groupping of the results into pages.
+The same may be said about the groupping of the results into pages.
 
-\subsubsection{How are multiple values handled}
+\subsubsection{How are multiple values handled?}
 One more thing must be said about the results. The values from all the input
-columns that have become the data columns will result in separate cells in the
-output table. Therefore if there are more than 1 data columns, this will result
-in additional columns in the ouptut table.
+columns that have become the data columns will be placed in separate cells in the
+output table. Therefore if there are more than one data columns, this will result
+in an expansion of one of the dimensions (rows or columns).
+
+\subsubsection{How to avoid location conflicts?}
+For all the input data rows, the output coordinates must be unique, as they are
+defining the precise coordinates in the output structures. The program can deal
+with multiple data columns, even if all the values from a given input row have the
+same output coordinates. This is handled in the way that in the output table one
+of the coordinates is expanded with the data column name. The coordinate expanded
+this way is still unique as all the values for which the coordinate is repeated
+reside in differenf input columns (since they come from a single input row). On
+the other hands if the values are duplicated for different input rows, collision
+occurs as there are many values that are bound to the same output coordinates
+\textit{and} that come from the same input columns, which breaks their general
+uniqueness.
 
 \subsubsection{Output}
 Let's assume that we have defined the following dimensions:
@@ -320,7 +340,8 @@ c1=t, c2=u | v0       | v1       | v2       | v3       | ...
 
 Note that for the values of the columne "c3" equal to x, which should define
 a simgle column, two columns are created: one for the value from the column
-"c4" and one for the value from the column "c5". The decision to expand the
-columns in this way instead of expanding the rows is arbitrary.
+"c4" and one for the value from the column "c5". We say that the columns
+dimension has been expanded with the data columns from the input. This behavior
+may be altered with a command line argument.
 
 \end{document}

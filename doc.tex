@@ -32,6 +32,8 @@ used separately.}.
 
 \subsection{All options}
 \begin{itemize}
+	\item \texttt{-d} \textit{delimiter} -- Allows selection of a custom
+		delimiter for the output data.
 	\item \texttt{-w} \textit{bucket-width} -- Determines the width of the
 		histogram bucket. The default value is 1.0.
 \end{itemize}
@@ -44,7 +46,9 @@ option.
 
 The output consists of two columns. The first column is built of the bucket
 center values, whereas in the second columnt the number of the results that
-fell into the according bucket is given.
+fell into the according bucket is given. By default the columns are separated
+with the tab character, but this behavior can be altered with use of the
+\texttt{-d \textit{delimiter}} option.
 
 The program automatically generates empty buckets for the ranges, for which
 there were no results, therefore the data is ready for further processing.
@@ -108,6 +112,28 @@ $cat values | ./histogram -w 2
 4	1
 \end{verbatim}
 
+\section{\texttt{aggr}}
+
+\subsection{Summary}
+This trivial tool accepts a list of numbers at its standard input and performs 
+one of the basic aggregations. The aggregator is shosen by the one and only
+command line argument, that will further be called the aggregator constructor.
+The available aggregations and their constructors are the following:
+\begin{itemize}
+	\item \texttt{count} -- The aggregator returning the number of values
+		that have been put in it.
+	\item \texttt{sum} -- Sums the values that have been put in it.
+	\item \texttt{mean} -- Computes the means of the values it has been
+		given.
+	\item \texttt{stdev} -- The standard deviation of the population
+		computer.
+	\item \texttt{conf\_int\_gauss \textit{conf-level}} -- Computes
+		the width of the confidence interval assuming the normal
+		distribution of the values put into the aggregator.
+		Requires a single argument that gives the confidence
+		level.
+\end{itemize}
+
 \section{\texttt{groupby}}
 
 \subsection{All options}
@@ -150,21 +176,7 @@ of a particular column, and the constructor string is the name of the
 aggregator followed by optional, aggregator-specific arguments.
 
 The available aggregators and their respective construction strings are
-the following:
-\begin{itemize}
-	\item \texttt{count} -- The aggregator returning the number of values
-		that have been put in it.
-	\item \texttt{sum} -- Sums the values that have been put in it.
-	\item \texttt{mean} -- Computes the means of the values it has been
-		given.
-	\item \texttt{stdev} -- The standard deviation of the population
-		computer.
-	\item \texttt{conf\_int\_gauss \textit{conf-level}} -- Computes
-		the width of the confidence interval assuming the normal
-		distribution of the values put into the aggregator.
-		Requires a single argument that gives the confidence
-		level.
-\end{itemize}
+the same as in the \texttt{aggr} tool.
 
 Therefore in order to define an aggregator for the field 3 that will compute
 the gaussion confidence interval at the confidence level of 0.95 the argument

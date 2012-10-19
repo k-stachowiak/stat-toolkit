@@ -18,9 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <limits>
-using std::numeric_limits;
-
 #include <iostream>
 using std::istream;
 using std::ostream;
@@ -40,31 +37,47 @@ using std::string;
 
 const string usage("Usage: histogram [-w bucket-width]");
 
+struct arguments {
+	double bucket_size;
+	char delim;
+};
+
 // Returns the bucket size parsed from the input.
 // On error throws a message as an exception.
-double parse_args(int argc, char** argv) {
+arguments parse_args(int argc, char** argv) {
 
-	int c;
-	double bucket_size = 1.0;
+	arguments args;
+	args.bucket_size = 1.0;
+	args.delim = '\t';
 	stringstream bucketss;
 
-	while((c = getopt(argc, argv, "w:")) != -1) {
+	int c;
+	while((c = getopt(argc, argv, "d:w:")) != -1) {
 		switch(c) {
+		case 'd':
+			if(string(optarg).size() != 1)
+				throw string("Delimiterm ust be given by a single character");
+			args.delim = optarg[0];
+			if(!isprint(args.delim) && args.delim != '\t')
+				throw string("Illegal character requested as a delimiter");
+			break;
+
 		case 'w':
 			bucketss << optarg;
-			bucketss >> bucket_size;
+			bucketss >> args.bucket_size;
 			if(bucketss.fail())
 				throw string("Failed parsing the bucket width argument.");
 			break;
+
 		case '?':
-			throw string("Option -w requires a bucket width argument.");
+			throw string("Options require arguments.");
 
 		default:
 			throw usage;
 		}
 	}
 
-	return bucket_size;
+	return args;
 }
 
 // Reads numbers from stdin and stuffs them in the histogram.
@@ -83,40 +96,17 @@ void process_input(hist::histogram& h, istream& in) {
 	}
 }
 
-// Processes the buckets and prints appropriate result.
-void print_results(const map<double, double>& buckets, double bucket_size, ostream& out) {
-
-	double prev_index = numeric_limits<double>::infinity();
-
-	// Note that it is assumed here (correctly) that
-	// std::map sorts its contents internally.
-	for(auto& pr : buckets) {
-
-		double bucket_index = pr.first;
-
-		// Enter zeros for omitted buckets.
-		for(double i = prev_index + 1; i < bucket_index; i += 1.0)
-			out << i * bucket_size << '\t' << 0.0 << endl;
-	
-		// Entry for the current bucket.
-		out << bucket_index * bucket_size << '\t' << pr.second << endl;
-
-		prev_index = bucket_index;
-	}
-
-}
-
 int main(int argc, char** argv) {
 
 	// Don't print internal getopt error messages.
 	opterr = 0;
 
-	double bucket_size;
 	try {
-		bucket_size = parse_args(argc, argv);
-		hist::histogram h(bucket_size);
+		arguments args = parse_args(argc, argv);
+		hist::histogram h(args.bucket_size);
 		process_input(h, cin);
-		print_results(h.get_buckets(), bucket_size, cout);
+		for(const auto& pr : h.get_buckets())
+			cout << pr.first << args.delim << pr.second << endl;
 
 	} catch(string ex) {
 		cout << ex << endl;

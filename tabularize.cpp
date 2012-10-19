@@ -57,7 +57,7 @@ arguments parse_args(int argc, char** argv) {
 	arguments args;
 	args.delim = '\t'; // The default delimiter.
 	int c;
-	while((c = getopt(argc, argv, "c:p:r:")) != -1) {
+	while((c = getopt(argc, argv, "c:p:r:d:")) != -1) {
 		stringstream ss;
 		uint32_t index;
 		switch(c) {
@@ -145,19 +145,69 @@ tab::table build_table(istream& in, const arguments& args) {
 	return tbl;
 }
 
-void print_table(const tab::table& tbl, ostream& out) {
-
-	// TODO: Implement according to the algoritnm in the comments below.
+void print_table(const tab::table& tbl, ostream& out, const arguments& args) {
 
 	// Reorganize data for printing.
 	// -----------------------------
+	unordered_map<tab::coordinate,
+		unordered_map<tab::coordinate,
+			unordered_map<tab::coordinate,
+				vector<pair<string, string>>>>> output;
 
-	// Generate the header row.
-	// ------------------------
-	
+	tbl.for_each_valuemap([&output](const tab::position& pos,
+					const map<string, string>& vals) {
+		auto& vec = output[pos.get_page()][pos.get_row()][pos.get_column()];
+		for(auto& pr : vals)
+			vec.push_back(pr);
+	});
+
 	// Print all the pages.
 	// --------------------
+	for(auto& page_rest : output) {
 
+		// Determine and handle the current page.
+		const tab::coordinate& page = page_rest.first;
+		if(page.defined())
+			out << "Page : " << page.get_value_string() << endl;
+
+		// Generate the page ehader.
+		vector<string> header;
+		auto& row_rest_1 = *begin(page_rest.second);
+		for(auto& col_vals : row_rest_1.second) {
+			string col_str = col_vals.first.get_value_string();
+			for(auto& key_val : col_vals.second) {
+				stringstream ss;
+				ss << '"' << col_str << ' ' << key_val.first << '"';
+				header.push_back(ss.str());
+			}
+		}
+
+		out << args.delim;
+		for(auto& str : header)
+			out << str << args.delim;
+		out << endl;
+
+		// Process the rows.
+		for(auto& row_rest : page_rest.second) {
+
+			// Print the row label.
+			string row_str = row_rest.first.get_value_string();
+			out << row_str << args.delim;
+
+			// Print the data values.
+			for(auto& col_vals : row_rest.second)
+				for(auto& key_val : col_vals.second)
+					out << key_val.second << args.delim;
+
+			out << endl;
+		}
+		out << endl;
+	}
+
+	// Debug view.
+	// -----------
+	
+	/*
 	tbl.for_each_valuemap([](const tab::position& pos,
 				 const vector<pair<string, string>>& data) {
 
@@ -172,6 +222,7 @@ void print_table(const tab::table& tbl, ostream& out) {
 		}
 		cout << endl;
 	});
+	*/
 }
 
 int main(int argc, char** argv) {
@@ -190,7 +241,7 @@ int main(int argc, char** argv) {
 		tab::table tbl = build_table(cin, args);
 
 		// Print output.
-		print_table(tbl, cout);
+		print_table(tbl, cout, args);
 		
 		return 0;
 

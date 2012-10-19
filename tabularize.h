@@ -24,6 +24,9 @@
 #include <map>
 using std::map;
 
+#include <set>
+using std::set;
+
 #include <string>
 using std::string;
 
@@ -187,7 +190,7 @@ class table {
 	// ------
 
 	/// This is a map of the data fields: position -> column -> value.
-	unordered_map<position, vector<pair<string, string>>> _data;
+	unordered_map<position, map<string, string>> _data;
 
 public:
 	table(vector<string> page_fields,
@@ -205,14 +208,14 @@ public:
 		// If the position has not been visited yet,
 		/// initialize aggregators there.
 		if(_data.find(pos) == end(_data))
-			_data[pos] = vector<pair<string, string>>();
+			_data[pos] = map<string, string>();
 
 		add_data_at(columns, row, pos);
 	}
 
 	void for_each_valuemap(function<void(
 				const position&,
-				const vector<pair<string, string>>&)> f) const {
+				const map<string, string>&)> f) const {
 
 		for(const auto& pr : _data)
 			f(pr.first, pr.second);
@@ -249,7 +252,13 @@ private:
 
 			// If we've got here, the index is in the set of the
 			// data indices.
-			_data[pos].emplace_back(columns.at(i), row.at(i));
+			map<string, string>::iterator _;
+			bool success;
+			tie(_, success) = _data[pos].insert(make_pair(columns.at(i), row.at(i)));
+
+			// Fail on duplicate. Uniqueness of these must be provided by the user.
+			if(!success)
+				throw string("Multiple values requested to be put in a single cell.");
 		}
 	}
 };

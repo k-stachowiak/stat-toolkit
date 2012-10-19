@@ -1,0 +1,320 @@
+\documentclass{report}
+
+\begin{document}
+
+\title{The statistical toolkit documentation/manual}
+\author{Krzysztof Stachowiak}
+\date{\today}
+
+\maketitle
+
+\tableofcontents
+
+\chapter{Libraries}
+The libraries, which in this suite take a form of autonomous and atomic C++
+header files are the foundation of the entire system. In many cases they are
+uniquely tied to one of the command line tools, but others are shared between
+the programs. Regardles of the particular use in the suite they are designed to
+be as generic as possible and enable potiential use outside of the toolkit.
+Therefore their interdependencies are minimized so that in many cases a
+particular header file may be simply copied and pasted in another
+project\footnote{Note however, that most of them still depends on some of the boost
+libraries, so the point is not that they are lightweight, but that they may be
+used separately.}.
+
+\chapter{Command Line Interface tools}
+
+\section{\texttt{histogram}}
+
+\subsection{All options}
+\begin{itemize}
+	\item \texttt{-w} \textit{bucket-width} -- Determines the width of the
+		histogram bucket. The default value is 1.0.
+\end{itemize}
+
+\subsection{Summary}
+The program takes a list of numbers, one number per line and builds
+a histogram of the provided distribution. The default bucket width is 1.0,
+but this setting may be overriden with use of the \texttt{-w \textit{width}}
+option.
+
+The output consists of two columns. The first column is built of the bucket
+center values, whereas in the second columnt the number of the results that
+fell into the according bucket is given.
+
+The program automatically generates empty buckets for the ranges, for which
+there were no results, therefore the data is ready for further processing.
+
+\subsection{Examples}
+Let's assume that we have a file consisting of several numbers:
+\begin{verbatim}
+$ cat values1
+1.0
+2.0
+3.0
+4.0
+5.0
+6.0
+7.0
+\end{verbatim}
+
+The default behavior of the program will be the following:
+\begin{verbatim}
+$cat values1 | ./histogram
+1	1
+2	1
+3	1
+4	1
+5	1
+6	1
+7	1
+\end{verbatim}
+
+We may alter the default behavior by changing hte width of the buckets:
+\begin{verbatim}
+$cat values1 | ./histogram -w 3
+0	1
+3	3
+6	3
+\end{verbatim}
+
+In order to clarify the program's behavior let's consider a case with negative values
+present in the input set as well as the case of empty buckets. Let's assume another
+input set:
+\begin{verbatim}
+$cat values2
+-7.0
+-2.0
+-1.0
+0.0
+1.0
+2.0
+3.0
+\end{verbatim}
+
+Now let's see an output for the case the bucket is narrow enough that one of the
+intervals ends up empty:
+\begin{verbatim}
+$cat values | ./histogram -w 2
+-6	1
+-4	0
+-2	1
+0	2
+2	2
+4	1
+\end{verbatim}
+
+\section{\texttt{groupby}}
+
+\subsection{All options}
+\begin{itemize}
+	\item \texttt{-a} \textit{constr-string} -- defines an aggregator with a
+		so called construction string.
+	\item \texttt{-d} \textit{delim-char} -- defines a custom delimiter.
+		The default value is the tab character.
+	\item \texttt{-g} \textit{group-index} -- defines a groupping criterion.
+\end{itemize}
+
+\subsection{Summary}
+The program performs SQL-like groupping aggregation of a set of data given by a
+stream of tabuarized textual data.
+
+A stream of data rows separated with a linebreak is expected. The default
+field separator is the tab character, but may be altered with the
+\texttt{-d \textit{delimiter}} option. The output is defined by two sets
+of the data processing elments: the groupping criteria and the aggregators.
+It is required that there is at least one groupping criterion and at least one
+aggregator defined in the command line. Note that they will appear in the output
+in the same order in which they're given in the command line.
+
+\subsubsection{Groupping criteria}
+The grouppers are equivalent to the SQL's ``group by'' statements.
+Assumed that we have selected a set of grouppers for fields f1, f2, etc.,
+All the input data rows that have the same values in these fields will be
+considered groupped. We will be furhter saying they belong to a single group.
+The fields are given by indices; in order to define a groupping criterion we use
+a \texttt{-g \textit{column-index}} option.
+
+\subsubsection{Aggregators}
+The aggregators define the way in which given values for the specific fields
+are to be put together. Defining an aggregator consists in providing a
+\texttt{-a "\textit{field-index} \textit{aggr-constr}"} option, where the
+\textit{field-index} indicates the field that is to be aggregated by the
+current aggregator and \textit{aggr-constr} means the string constructing
+a given aggregator. The field index is a non-negative, zero-based index
+of a particular column, and the constructor string is the name of the
+aggregator followed by optional, aggregator-specific arguments.
+
+The available aggregators and their respective construction strings are
+the following:
+\begin{itemize}
+	\item \texttt{count} -- The aggregator returning the number of values
+		that have been put in it.
+	\item \texttt{sum} -- Sums the values that have been put in it.
+	\item \texttt{mean} -- Computes the means of the values it has been
+		given.
+	\item \texttt{stdev} -- The standard deviation of the population
+		computer.
+	\item \texttt{conf\_int\_gauss \textit{conf-level}} -- Computes
+		the width of the confidence interval assuming the normal
+		distribution of the values put into the aggregator.
+		Requires a single argument that gives the confidence
+		level.
+\end{itemize}
+
+Therefore in order to define an aggregator for the field 3 that will compute
+the gaussion confidence interval at the confidence level of 0.95 the argument
+line should be:
+
+\texttt{... | ./groupby ... -a "3 conf\_int\_gauss 0.95" ...}
+
+\subsubsection{Output format}
+Let's assume that fields \texttt{f1, f2, ...} have been chosen as the
+grouppers and aggregators \texttt{a1, a2, ...} have been selected.
+The results will take the following form:
+\begin{verbatim}
+f1 f2 ... a1 a2 ...
+i1 i2 ... v1 v2 ...
+i3 i4 ... v3 v4 ...
+\end{verbatim}
+
+... where \texttt{i1, i2, ...} -- the "indicators" -- are the labels for
+the given fields that have been captured and \texttt{v1, v2, ...} are
+the computed aggregated values.
+
+\subsection{Examples}
+Let's consider a simple dataset:
+\begin{verbatim}
+$cat data
+50	4	1.0	2.0
+50	4	3.0	4.0
+50	6	1.0	2.0
+50	6	3.0	4.0
+100	4	1.0	2.0
+100	4	3.0	4.0
+100	6	1.0	2.0
+100	6	3.0	4.0
+\end{verbatim}
+
+Let's now take a look at different results depending on the input options.
+
+\begin{verbatim}
+$cat data | ./groupby -g1 -a "2 sum"
+1	"2 sum"
+4	8
+6	8
+\end{verbatim}
+
+\begin{verbatim}
+$cat data | ./groupby -g0 -g1 -a "2 sum" -a "3 mean"
+0	1	"2 sum"	"3 mean"
+50	4	4	3
+50	6	4	3
+100	4	4	3
+100	6	4	3
+\end{verbatim}
+
+\begin{verbatim}
+$cat data | ./groupby -g1 -g0 -a "2 sum" -a "3 mean"
+1	0	"2 sum"	"3 mean"
+4	50	4	3
+6	50	4	3
+4	100	4	3
+6	100	4	3
+\end{verbatim}
+
+\begin{verbatim}
+$cat data | ./groupby -g1 -g0 -a "3 mean" -a "2 sum"
+1	0	"3 mean"	"2 sum"
+4	50	3	4
+6	50	3	4
+4	100	3	4
+6	100	3	4
+\end{verbatim}
+
+\section{\texttt{tabularize}}
+
+\subsection{Summary}
+This program performs the tabularizing of the input data as in the pivot table
+tools. It is assumed that the data has been aggregated prior to the tabularizing
+which may be performed with the \texttt{groupby} tool.
+
+\texttt{tabularize} positions one-dimensional labeled series of data in a
+multi-dimensional array. We assume that the input is a stream of data rows,
+each of which consists of several columns. It is expected that the first row
+contains the column headers as the columns are referenced by name in the results.
+Note however that in the input the column indices are expected.
+
+In order to spread the data in space we first divide the columns into the
+label columns and the data columns.
+
+\subsubsection{Label columns}
+The label columns are used to determine the position, so that one or more values
+from the label columns build a single \textit{coordinate}.
+
+\subsubsection{Data columns}
+The columns which aren't selected as the label columns are implicitly treated as
+the data columns and the values they store is to be placed inside the output
+arrays.
+
+\subsubsection{Input}
+Three dimensions are considered:
+
+\begin{itemize}
+	\item \textit{pages} -- Optionnaly multiple tables may be build. Each
+		of the tables is considered a page.
+	\item \textit{rows} -- The rows in the table. This set will define rows
+		for each page.
+	\item \textit{columns} -- The columns in the table. The columns set
+		defines the columns in each of the pages.
+\end{itemize}
+
+The pages coordinate is optional, but the columns sets for the rows and columns
+must be provided.
+
+\subsubsection{How are the dimensions defined}
+Let's assume that we want to define a table so that there are two row columns,
+say "col1" and "col2". The way the columns of the result table will be filled
+is that all the values that are placed in a given row come from the input data
+rows that have the same values in the columns "col1" and "col2" respectively.
+
+Accordingly we must define the output columns in terms of a set of input columns
+so that each of the values that is placed in a given output column comes from
+an input data row that has the same values in the according columns.
+
+The same may be told about the groupping of the results into pages.
+
+\subsubsection{How are multiple values handled}
+One more thing must be said about the results. The values from all the input
+columns that have become the data columns will result in separate cells in the
+output table. Therefore if there are more than 1 data columns, this will result
+in additional columns in the ouptut table.
+
+\subsubsection{Output}
+Let's assume that we have defined the following dimensions:
+\begin{itemize}
+	\item \textit{pages} -- No pages to simplify the example.
+	\item \textit{rows} -- "c1" and "c2" input columns.
+	\item \textit{columns} -- "c3" input column.
+\end{itemize}
+
+Let's also assume that we have 2 additional columns: "c4" and "c5", which for
+the above mapping become the data columns implicitly. The resulting table will
+take the following form:
+
+\begin{verbatim}
+           | c3=x, c4 | c3=x, c5 | c3=y, c4 | c3=y, c5 | ...
+-----------+----------+----------+----------+----------+-----
+c1=r, c2=s | v0       | v1       | v2       | v3       | ...
+-----------+----------+----------+----------+----------+-----
+c1=t, c2=u | v0       | v1       | v2       | v3       | ...
+-----------+----------+----------+----------+----------+-----
+...        | ...      | ...      | ...      | ...      | ...
+\end{verbatim}
+
+Note that for the values of the columne "c3" equal to x, which should define
+a simgle column, two columns are created: one for the value from the column
+"c4" and one for the value from the column "c5". The decision to expand the
+columns in this way instead of expanding the rows is arbitrary.
+
+\end{document}

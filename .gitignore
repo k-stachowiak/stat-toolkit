@@ -10,3 +10,12 @@
 *.lai
 *.la
 *.a
+dist/
+*.aux
+*.log
+*.pdf
+*.toc
+groupby
+histogram
+tabularize
+tags

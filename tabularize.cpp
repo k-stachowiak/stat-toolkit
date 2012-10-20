@@ -42,17 +42,22 @@ using std::string;
  *   the additional rows are generated.
  */
 
+/// @brief The structure for convenient storage of the input arguments.
 struct arguments {
 
 	/// The field separator.
 	char delim;
 
-	/// Coordinate fields.
-	vector<uint32_t> page_fields;
-	vector<uint32_t> row_fields;
-	vector<uint32_t> column_fields;
+	vector<uint32_t> page_fields;	///< The page field definitions.
+	vector<uint32_t> row_fields;	///< The row field definitions.
+	vector<uint32_t> column_fields;	///< The column field definitions.
 };
 
+/// @brief A finction that processes the input arguments and stores them in
+/// 	a single structure.
+///
+/// @param[in] argc Classical arguments count.
+/// @param[in] argv Classical arguments vector.
 arguments parse_args(int argc, char** argv) {
 	arguments args;
 	args.delim = '\t'; // The default delimiter.
@@ -107,6 +112,10 @@ arguments parse_args(int argc, char** argv) {
 	return args;
 }
 
+/// @brief The function that builds a table based on the input stream.
+///
+/// @param[in] in The input stream to be processed.
+/// @param[in] args The structire storing the input arguments.
 tab::table build_table(istream& in, const arguments& args) {
 
 	string line;
@@ -145,6 +154,11 @@ tab::table build_table(istream& in, const arguments& args) {
 	return tbl;
 }
 
+/// @brief Prints the output table/
+///
+/// @param[in] tbl The table to be printed.
+/// @param[in] out The output stream to write the result to.
+/// @param[in] args The structure with theinput arguments.
 void print_table(const tab::table& tbl, ostream& out, const arguments& args) {
 
 	// Reorganize data for printing.
@@ -203,26 +217,6 @@ void print_table(const tab::table& tbl, ostream& out, const arguments& args) {
 		}
 		out << endl;
 	}
-
-	// Debug view.
-	// -----------
-	
-	/*
-	tbl.for_each_valuemap([](const tab::position& pos,
-				 const vector<pair<string, string>>& data) {
-
-		if(pos.get_page().defined())
-			cout << "p " << pos.get_page().get_value_string() << '\t';
-
-		cout << "r " << pos.get_row().get_value_string() << '\t';
-		cout << "c " << pos.get_column().get_value_string() << '\t';
-
-		for(auto& pr : data) {
-			cout << "v " << pr.first << " = " << pr.second << '\t';
-		}
-		cout << endl;
-	});
-	*/
 }
 
 int main(int argc, char** argv) {

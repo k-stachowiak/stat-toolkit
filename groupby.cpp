@@ -18,9 +18,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <utility>
-using std::pair;
-
 #include <iostream>
 using std::istream;
 using std::ostream;
@@ -41,24 +38,10 @@ using std::move;
 #include <map>
 using std::map;
 
-#include <boost/xpressive/xpressive.hpp>
-using boost::xpressive::sregex;
-using boost::xpressive::smatch;
-using boost::xpressive::s1;
-using boost::xpressive::s2;
-using boost::xpressive::_d;
-using boost::xpressive::_s;
-using boost::xpressive::_;
-using boost::xpressive::eos;
-
 #include <unistd.h>
 
 #include "util.h"
-#include "aggr.h"
-
-// Helper typedefs
-// ===============
-typedef unique_ptr<aggr::aggregator> aggr_ptr;
+#include "groupby.h"
 
 // The input arguments analysis.
 // =============================
@@ -137,86 +120,6 @@ arguments parse_args(int argc, char** argv) {
 // The aggregation phase.
 // ======================
 
-/// Parses the aggregator string extracting the index of the aggregated field
-/// and building an appropriate aggregator object.
-void parse_aggr_str(string aggr_str, uint32_t& field, aggr_ptr& aggr) {
-
-	smatch match;
-
-	// Recognize the field to aggregator mapping.
-	sregex base_re = *_s >> (s1 = +_d) >> +_s >> (s2 = +_) >> eos;
-	if(!regex_match(aggr_str, match, base_re))
-		throw string("Unrecognize aggregator string \"") + aggr_str + "\".";
-
-	// Parse the field index.
-	stringstream field_ss;
-	field_ss << match[1];
-	field_ss >> field;
-
-	if(field_ss.fail())
-		throw string("Failed parsing the field mapping of an aggregator.");
-
-	// Parse the aggregator string.
-	auto a = aggr::create_from_string(match.str(2));
-	aggr = move(a);
-}
-
-/// A class to define the groups and store their aggregations.
-struct group {
-
-	/// The field indices and the values that discriminate this
-	/// group from the others.
-	vector<pair<uint32_t, string>> definition;
-
-	/// The list of the pairs of the indices of the fields to be
-	/// aggregated and their respective aggregators.
-	vector<pair<uint32_t, aggr_ptr>> aggregators;
-
-	/// Checks whether a given row belongs to this group.
-	bool matches_row(const vector<string>& row) {
-		for(const auto& def : definition)
-			if(row.at(def.first) != def.second)
-				return false;
-		
-		return true;
-	}
-
-	/// Consumes the row, i.e. feeds all the aggregators with
-	/// the values from the respective fields.
-	void consume_row(const vector<string>& row) {
-		for(auto& aggr : aggregators) {
-			double value;
-			stringstream ss;
-			ss << row[aggr.first];
-			ss >> value;
-			if(ss.fail())
-				throw string("Failed parsing a value for an aggregator.");
-			aggr.second->put(value);
-		}
-	}
-
-	/// Builds a group that matches a given row.
-	static group from_row(
-			const vector<uint32_t>& groupbys,
-			const vector<string>& aggr_strs,
-			const vector<string>& row) {
-
-		group result;
-
-		for(uint32_t gb : groupbys)
-			result.definition.emplace_back(gb, row[gb]);
-
-		for(const auto& as : aggr_strs) {
-			uint32_t field;
-			aggr_ptr aggr;
-			parse_aggr_str(as, field, aggr);
-			result.aggregators.emplace_back(field, move(aggr));
-		}
-
-		return result;
-	}
-};
-
 /// Fetches the data from the input stream and finally prints out
 /// the aggregations to the provided output stream.
 vector<group> process_stream(istream& in, const arguments& args) {
@@ -277,12 +180,13 @@ void print_results(const vector<group>& groups, ostream& out, const arguments& a
 
 	// Print the groups.
 	for(const group& g : groups) {
-		for(const auto& d : g.definition)
+		for(const auto& d : g.get_definition())
 			out << d.second << args.delim;
 
-		for(uint32_t i = 0; i < g.aggregators.size(); ++i) {
-			out << g.aggregators.at(i).second->get();
-			if(i < (g.aggregators.size() - 1))
+		uint32_t aggr_size = g.get_aggregators().size();
+		for(uint32_t i = 0; i < aggr_size; ++i) {
+			out << g.get_aggregators().at(i).second->get();
+			if(i < (aggr_size - 1))
 				out << args.delim;
 		}
 		out << endl;

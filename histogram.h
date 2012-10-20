@@ -32,23 +32,35 @@ using std::floor;
 
 namespace hist {
 	
-// Builds a histogram of the tata it receives.
+/// @brief Builds a histogram of the tata it receives.
+///
+/// This class contains a caching mechanism so that the re is the raw buckets
+/// 	map that is created based on the input data and nothing else. Upon
+///	request a refined buckets map is created that also contains empty
+///	buckets if any are needed.
 class histogram {
 
 	// Parameters.
-	double _bucket_size;
+	// -----------
+	double _bucket_size;	///< The width of the histogram's interval.
 
 	// State.
-	map<double, double> _raw_buckets; // ceneter -> sum
-
-	bool _cache_valid;
-	map<double, double> _cached_buckets;
+	// ------
+	map<double, double> _raw_buckets;	///< Maps bucket-center -> count 
+	bool _cache_valid;			///< Flag indicating cache validity
+	map<double, double> _cached_buckets;	///< The cached output buckets.
 
 public:
+	/// @brief The constructor.
+	///
+	/// @param[in] bucket_size The requested size of a bucket.
 	histogram(double bucket_size)
 	: _bucket_size(bucket_size)
 	, _cache_valid(false) {}
 
+	/// @brief The finction for inserting a value into the histogram.
+	///
+	/// @param[in] value The value to be inserted.
 	void put(double value) {
 		
 		// Establish the bucket
@@ -66,10 +78,11 @@ public:
 		_cache_valid = false;
 	}
 
-	map<double, double> get_raw_buckets() const {
-		return _raw_buckets;
-	}
-
+	/// @brief The function that returns the refined variant of the buckets'
+	/// 	map. It is cached so if anu value has been put in this histogram
+	///	the cache must be rebuilt upon a call to this function.
+	///
+	/// @returns A map representing the refined buckets.
 	map<double, double> get_buckets() {
 
 		if(!_cache_valid) {

@@ -35,15 +35,19 @@ using std::string;
 
 #include "histogram.h"
 
+/// The common usage string.
 const string usage("Usage: histogram [-w bucket-width]");
 
+/// @brief A structure for storing the input arguments.
 struct arguments {
-	double bucket_size;
-	char delim;
+	double bucket_size;	///< The width of the bucket.
+	char delim;		///< The input/output delimiter.
 };
 
-// Returns the bucket size parsed from the input.
-// On error throws a message as an exception.
+/// @brief Reads the input arguments and stores them in a convenient struct.
+///
+/// @param[in] argc Classical arguments count.
+/// @param[in] argv Classical arguments vector.
 arguments parse_args(int argc, char** argv) {
 
 	arguments args;
@@ -80,7 +84,10 @@ arguments parse_args(int argc, char** argv) {
 	return args;
 }
 
-// Reads numbers from stdin and stuffs them in the histogram.
+/// @brief Reads numbers from stdin and stuffs them in the histogram.
+///
+/// @param[in] h The histogram to be filled.
+/// @param[in] in The input stream to be processed.
 void process_input(hist::histogram& h, istream& in) {
 	while(true) {
 		double value;

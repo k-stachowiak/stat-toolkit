@@ -58,27 +58,28 @@ using boost::unordered_map;
 
 namespace tab {
 
-/// Coordinate binds a subset of the data table attributes and associates them
-/// with concrete values. It may be vieved as a simple filter. Eg. Coordinate
-/// may mean "All the data rows that have value x at column X, value y at
-/// column Y, etc.
+/// @brief A coordinate defined in the space of the results.
 ///
-/// This class is used to determine the pivot table dimensions: pages, rows and
-/// columns thus the "coordinate" name.
+/// Coordinate binds a subset of the data table attributes and associates them
+///	with concrete values. It may be vieved as a simple filter. Eg.
+///	Coordinate may mean "All the data rows that have value x at column X,
+///	value y at column Y, etc. This class is used to determine the pivot
+///	table dimensions: pages, rows and columns thus the "coordinate" name.
 class coordinate {
 
 	// Configuration.
 	// --------------
-	map<string, string> _labels;
+	map<string, string> _labels;	///< The labels defining the coordinate.
 
-	// The constructor is private as the objects will be created by a
-	// factory method.
+	/// @brief Constructor - note that it is private.
 	coordinate(map<string, string> labels) : _labels(labels) {}
 
 public:
-	/// A factory method.
-	/// The definitions are the column indices to define the coordinate.
-	/// Row is the data row for the coordinate to be built with.
+	/// @brief Main factory method.
+	///
+	/// @param[in] definitions The column indices to define the coordinate.
+	/// @param[in] columns The columns of the original data set.
+	/// @param[in] row The data row for the coordinate to be built with.
 	static coordinate from_def_and_row(
 			const vector<string>& definitions,
 			const vector<string>& columns,
@@ -98,13 +99,18 @@ public:
 		return coordinate(labels);
 	}
 
-	/// Checks whether the coordinate has any labels assigned.
+	/// @brief Checks whether the coordinate has any labels assigned.
+	///
+	/// @returns True if any labels have been defined, false otherwise.
 	bool defined() const {
 		return !_labels.empty();
 	}
 
-	/// Concatenates all values. This may serve as a sort of the coordinate
-	/// identifier.
+	/// @brief Concatenates all values.
+	///
+	/// This may serve as a sort of the coordinate identifier.
+	///
+	/// @returns A concatenation of all the label mappings.
 	string get_value_string() const {
 		stringstream ss;
 		for(auto& pr : _labels)
@@ -112,8 +118,13 @@ public:
 		return ss.str();
 	}
 
-	/// Checks whether a given data row matches the values defined by this
-	/// coordinate.
+	/// @brief Checks whether a given data row matches the values defined
+	///	by this coordinate.
+	///
+	/// @param[in] columns The columns of the original data set.
+	/// @param[in] row The row to be checked.
+	///
+	/// @returns True if the given row matches this coordinate, false otherwise.
 	bool matches(const vector<string>& columns, const vector<string>& row) {
 		for(auto& pr : _labels) {
 			uint32_t index = index_of(columns, pr.first);
@@ -127,6 +138,7 @@ public:
 	// Prepares the type to be stored in a hash based container.
 	// ---------------------------------------------------------
 
+	/// @brief Computes hash value for the boost's unordered map.
 	friend size_t hash_value(const coordinate& coord) {
 		size_t seed = 0;
 		for(auto& pr : coord._labels) {
@@ -136,21 +148,29 @@ public:
 		return seed;
 	}
 
+	/// @brief Determines the equality condition for the boost's unordered map.
 	friend bool operator==(const coordinate& lhs, const coordinate& rhs) {
 		return hash_value(lhs) == hash_value(rhs);
 	}
 };
 
-/// Determines a position of a value in the table set.
+/// @brief Determines a position of a value in the table set.
+///
+/// This class serves mostly as a convenient binding of the three underlying
+///	coordinates: the page, row and column.
 class position {
 
 	// Configuration.
 	// --------------
-
-	coordinate _page;
-	coordinate _row;
-	coordinate _column;
+	coordinate _page;	///< The page coordinate.
+	coordinate _row;	///< The row coordinate.
+	coordinate _column;	///< The column coordinate.
 public:
+	/// @brief The constructor.
+	///
+	/// @param[in] page The page coordinate.
+	/// @param[in] row The row coordinate.
+	/// @param[in] column The column coordinate.
 	position(const coordinate& page,
 		const coordinate& row,
 		const coordinate& column)
@@ -158,13 +178,19 @@ public:
 	, _row(row)
 	, _column(column) {}
 
+	/// @brief Page coordinate getter.
 	const coordinate& get_page() const { return _page; }
+
+	/// @brief Row coordinate getter.
 	const coordinate& get_row() const { return _row; }
+
+	/// @brief Column coordinate getter.
 	const coordinate& get_column() const { return _column; }
 
 	// Prepares the type to be stored in a hash based container.
 	// ---------------------------------------------------------
 
+	/// @brief Computes the hash value for the boost's unordered map.
 	friend size_t hash_value(const position& pos) {
 		size_t seed = 0;
 		hash_combine(seed, pos._page);
@@ -173,26 +199,33 @@ public:
 		return seed;
 	}
 
+	/// @brief Defines the equality condition for the boost's unordered map.
 	friend bool operator==(const position& lhs, const position& rhs) {
 		return hash_value(lhs) == hash_value(rhs);
 	}
 };
 
+/// @brief The table organizing data in a pivot table like way.
 class table {
 
 	// Configuration.
 	// --------------
-	vector<string> _page_fields;
-	vector<string> _column_fields;
-	vector<string> _row_fields;
+	vector<string> _page_fields;	///< The page firld definitions.
+	vector<string> _column_fields;	///< The column field definitions.
+	vector<string> _row_fields;	///< The row field definition.
 
 	// State.
 	// ------
 
-	/// This is a map of the data fields: position -> column -> value.
+	/// This maps the following: position -> original-column -> value.
 	unordered_map<position, map<string, string>> _data;
 
 public:
+	/// @brief The constructor.
+	///
+	/// @param[in] page_fields The page fields definitions.
+	/// @param[in] column_fields The column fields definitions.
+	/// @param[in] row_fields The row fields definitions.
 	table(vector<string> page_fields,
 	      vector<string> column_fields,
 	      vector<string> row_fields)
@@ -200,6 +233,10 @@ public:
 	, _column_fields(column_fields)
 	, _row_fields(row_fields) {}
 
+	/// @brief Inserts data from a given row into this table.
+	///
+	/// @param[in] columns The columns of the original data.
+	/// @param[in] row The row to be inserted.
 	void consume_row(const vector<string>& columns, const vector<string>& row) {
 
 		// Establish the position of the given data row.
@@ -213,6 +250,10 @@ public:
 		add_data_at(columns, row, pos);
 	}
 
+	/// @brief The public access to the stored data.
+	///
+	/// @param[in] f The function that will be called for each of the stored
+	///	position -> value-map item.
 	void for_each_valuemap(function<void(
 				const position&,
 				const map<string, string>&)> f) const {
@@ -222,6 +263,11 @@ public:
 	}
 
 private:
+	/// @brief Builds a position object from a data row and the columns
+	///	definition.
+	///
+	/// @param[in] columns The columns of the input data set.
+	/// @param[in] row The row from which the position is to be deduced.
 	position row_position(const vector<string>& columns,
 			      const vector<string>& row) const {
 		coordinate p = coordinate::from_def_and_row(_page_fields, columns, row);
@@ -230,6 +276,11 @@ private:
 		return position(p, r, c);
 	}
 	
+	/// @brief Inserts data from a given row at a given position.
+	///
+	/// @param[in] columns The columns from the original data set.
+	/// @param[in] row The row, the data from which is to be inserted.
+	/// @param[in] pos The position at which the data is to be inserted.
 	void add_data_at(const vector<string>& columns,
 			 const vector<string>& row,
 			 const position& pos) {

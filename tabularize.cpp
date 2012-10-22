@@ -150,7 +150,7 @@ tab::table build_table(istream& in, const arguments& args) {
 		vector<string> row = split(line, args.delim);
 		tbl.consume_row(columns, row);
 	}
-
+\
 	return tbl;
 }
 

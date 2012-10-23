@@ -1,3 +1,26 @@
+#include <map>
+using std::map;
+
+#include <string>
+using std::string;
+
+#include <vector>
+using std::vector;
+
+#include <utility>
+using std::pair;
+
+#include <initializer_list>
+using std::initializer_list;
+
+#include <boost/functional/hash.hpp>
+using boost::hash_combine;
+
+#include <boost/unordered_map.hpp>
+using boost::unordered_map;
+
+#include "util.h"
+
 namespace buck_arr {
 
 /// @brief Defines one of the bucket's coordinates.
@@ -9,22 +32,17 @@ class coord {
 	string _data_ext;
 
 	/// @brief Private constructor.
-	coord(const map<string, string>& label_map,
-	      const string& data_ext = "")
-	: _label_map(label_map)
-	, _data_ext(data_ext) {}
+	coord(const map<string, string>& label_map)
+	: _label_map(label_map) {}
 
 public:
 	/// @brief Main factory method.
 	///
 	/// @param[in] definitions The column indices to define the coordinate.
-	/// @param[in] data_ext The data column extending this dimension.
-	///	pass an empty string to indicate no extension.
 	/// @param[in] columns The columns of the original data set.
 	/// @param[in] row The data row for the coordinate to be built with.
-	static coord from_def_and_row(
+	static coord from_def_cols_row(
 			const vector<string>& label_map_defs,
-			const string& data_ext,
 			const vector<string>& columns,
 			const vector<string>& row) {
 
@@ -34,12 +52,12 @@ public:
 		// definition label.
 
 		map<string, string> label_map;
-		for(auto& def : definitions) {
+		for(auto& def : label_map_defs) {
 			uint32_t index = index_of(columns, def);
 			label_map[def] = row[index];
 		}
 
-		return coordinate(label_map, data_ext);
+		return coord(label_map);
 	}
 
 	/// @brief Extends the coordinate with a data column.
@@ -74,7 +92,7 @@ public:
 	///
 	/// @returns True if the given row matches this coordinate, false otherwise.
 	bool matches(const vector<string>& columns, const vector<string>& row) {
-		for(auto& pr : _labels) {
+		for(auto& pr : _label_map) {
 			uint32_t index = index_of(columns, pr.first);
 			if(pr.second != row.at(index))
 				return false;
@@ -86,42 +104,42 @@ public:
 	// ---------------------------------------------------------
 
 	/// @brief Computes hash value for the boost's unordered map.
-	friend size_t hash_value(const coordinate& coord) {
+	friend size_t hash_value(const coord& coord) {
 		size_t seed = 0;
-		for(auto& pr : coord._labels) {
+		for(auto& pr : coord._label_map) {
 			hash_combine(seed, pr.first);
 			hash_combine(seed, pr.second);
 		}
-		hash_combine(seed, _data_ext);
+		hash_combine(seed, coord._data_ext);
 		return seed;
 	}
 
 	/// @brief Determines the equality condition for the boost's unordered map.
-	friend bool operator==(const coordinate& lhs, const coordinate& rhs) {
+	friend bool operator==(const coord& lhs, const coord& rhs) {
 		return hash_value(lhs) == hash_value(rhs);
 	}
 };
 
 /// @brief Defines a multidimensional position of a bucket.
 class position {
-	/// The coordinates defining this position.
+	/// The coords defining this position.
 	vector<coord> _coords;
 
 public:
 	/// @brief Constructor allowing building of a position object
-	///	from a list of coordinates.
+	///	from a list of coords.
 	position(initializer_list<coord> coords) {
-		if(coords.empty())
-			throw string("Position must have at least one coordinate");
+		if(coords.size() == 0)
+			throw string("Position must have at least one coord");
 
 		for(const auto& coord : coords)
 			_coords.push_back(coord);
 	}
 
-	/// @brief Access to the position's coordinates.
+	/// @brief Access to the position's coords.
 	///
-	/// @param index The index of the requested coordinate.
-	const coordinate& coord(uint32_t index) const {
+	/// @param index The index of the requested coord.
+	const coord& at(uint32_t index) const {
 		return _coords.at(index);
 	}
 
@@ -171,16 +189,16 @@ class table {
 	/// The map defining the bucket positions.
 	unordered_map<position, BUCKET> _buckets;
 
-	/// @brief Generates coordinates based on the general definitions.
+	/// @brief Generates coords based on the general definitions.
 	///
-	/// This function doesn't take into account any coordinate extensions
+	/// This function doesn't take into account any coord extensions
 	///	that may be a result of the multiple data columns existing in
 	///	the original data set or the necessity of generating additional
-	///	coordinates for each aggregator.
+	///	coords for each aggregator.
 	///
 	/// @param[in] columns The columns of the original data set.
 	/// @param[in] row The data row to be processed.
-	/// @param[out] base_coords The base coordinates found by this function.
+	/// @param[out] base_coords The base coords found by this function.
 	/// @param[out] unused_columns The columns that have not been used by the
 	///	dimension definitions. They will define the data extendions.
 	void gen_base_coords(
@@ -195,11 +213,10 @@ class table {
 		auto acb = begin(columns);
 		auto ace = begin(columns);
 
-		// Build the base coordinates. They have not been extended yet.
-		vcector<coord> base_coords;
+		// Build the base coords. They have not been extended yet.
 		for(const auto& def : _dim_defs) {
 
-			// Add new base coordinate.
+			// Add new base coord.
 			base_coords.push_back(coord::from_def_cols_row(
 				def, columns, row));
 
@@ -215,7 +232,7 @@ class table {
 	///	constructors and then puts according data into the according
 	///	buckets.
 	///
-	/// @param[in] coords The coordinates of the data row that have been 
+	/// @param[in] coords The coords of the data row that have been 
 	///	established so far (after taking into account possible data
 	///	column extension).
 	/// @param[in] column The columns of the original data set.
@@ -227,11 +244,11 @@ class table {
 
 		for(const auto& pr : _bucket_constrs) {
 
-			// Generate the ultimate coordinates vector.
+			// Generate the ultimate coords vector.
 			vector<coord> buck_ext_coords(coords);
 
 			// Perform the bucket extension.
-			buck_ext_coords[buck_ext_dim].extend(columns[pr.first]);
+			buck_ext_coords[_buck_ext_dim].extend(columns[pr.first]);
 
 			// Initialize the position object.
 			position pos(buck_ext_coords);

@@ -24,6 +24,12 @@
 #include <utility>
 using std::pair;
 
+#include <vector>
+using std::vector;
+
+#include <string>
+using std::string;
+
 #include <boost/xpressive/xpressive.hpp>
 using boost::xpressive::sregex;
 using boost::xpressive::smatch;

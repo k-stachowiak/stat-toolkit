@@ -10,13 +10,14 @@ DISTDIR = dist
 
 all: test cli
 
-test: aggr_test histogram_test groupby_test
+test: aggr_test histogram_test groupby_test bucket_array_test
 
-cli: aggr histogram groupby tabularize 
+cli: aggr histogram groupby tabularize pivot
 	cp aggr $(DISTDIR)/
 	cp histogram $(DISTDIR)/
 	cp groupby $(DISTDIR)/
 	cp tabularize $(DISTDIR)/
+	cp pivot $(DISTDIR)/
 
 doc: manual.pdf reference.pdf
 	cp manual.pdf $(DISTDIR)/
@@ -38,10 +39,12 @@ clean_cli:
 	rm -f $(DISTDIR)/histogram
 	rm -f $(DISTDIR)/groupby
 	rm -f $(DISTDIR)/tabularize
+	rm -f $(DISTDIR)/pivot
 	rm -f aggr
 	rm -f histogram
 	rm -f groupby 
 	rm -f tabularize
+	rm -f pivot
 
 clean_doc:
 	rm -f $(DISTDIR)/manual.pdf
@@ -62,11 +65,14 @@ aggr: aggr.cpp aggr.h
 histogram: histogram.cpp histogram.h
 	$(CXX) $(LIBS) -o histogram histogram.cpp
 
-groupby: groupby.cpp groupby.h aggr.h
+groupby: groupby.cpp groupby.h aggr.h util.h
 	$(CXX) $(LIBS) -o groupby groupby.cpp
 
 tabularize: tabularize.cpp tabularize.h 
 	$(CXX) $(LIBS) -o tabularize tabularize.cpp
+
+pivot: pivot.cpp bucket_array.h util.h
+	$(CXX) $(LIBS) -o pivot pivot.cpp
 
 # ------
 # Tests.
@@ -80,9 +86,13 @@ histogram_test: histogram_test.cpp histogram.h
 	$(CXX) -o histogram_test histogram_test.cpp $(LIBS)
 	./histogram_test
 
-groupby_test: groupby_test.cpp groupby.h aggr.h
+groupby_test: groupby_test.cpp groupby.h aggr.h util.h
 	$(CXX) -o groupby_test groupby_test.cpp $(LIBS)
 	./groupby_test
+	
+bucket_array_test: bucket_array_test.cpp bucket_array.h util.h aggr.h
+	$(CXX) -o bucket_array_test bucket_array_test.cpp $(LIBS)
+	./bucket_array_test
 
 # --------------
 # Documentation.

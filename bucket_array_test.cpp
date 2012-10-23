@@ -21,7 +21,7 @@
 #include <unittest++/UnitTest++.h>
 using namespace UnitTest;
 
-#include "groupby.h"
+#include "bucket_array.h"
 
 static const double TOLERANCE = 0.01;
 

@@ -71,7 +71,7 @@ groupby: groupby.cpp groupby.h aggr.h util.h
 tabularize: tabularize.cpp tabularize.h 
 	$(CXX) $(LIBS) -o tabularize tabularize.cpp
 
-pivot: pivot.cpp bucket_array.h util.h
+pivot: pivot.cpp bucket_array.h util.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
 
 # ------

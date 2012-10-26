@@ -27,6 +27,12 @@ using std::strcpy;
 #include <algorithm>
 using std::find;
 
+#include <vector>
+using std::vector;
+
+#include <string>
+using std::string;
+
 /// Splits a string by a given delimiter.
 vector<string> split(string str, char delim) {
 

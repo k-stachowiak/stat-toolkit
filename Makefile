@@ -10,7 +10,7 @@ DISTDIR = dist
 
 all: test cli
 
-test: aggr_test histogram_test groupby_test bucket_array_test
+test: aggr_test histogram_test groupby_test aggr_array_test
 
 cli: aggr histogram groupby tabularize pivot
 	cp aggr $(DISTDIR)/
@@ -19,9 +19,7 @@ cli: aggr histogram groupby tabularize pivot
 	cp tabularize $(DISTDIR)/
 	cp pivot $(DISTDIR)/
 
-doc: manual.pdf reference.pdf
-	cp manual.pdf $(DISTDIR)/
-	cp reference.pdf $(DISTDIR)/
+doc: manual reference
 
 # --------------
 # Clean targets.
@@ -71,7 +69,7 @@ groupby: groupby.cpp groupby.h aggr.h util.h
 tabularize: tabularize.cpp tabularize.h 
 	$(CXX) $(LIBS) -o tabularize tabularize.cpp
 
-pivot: pivot.cpp bucket_array.h util.h aggr.h
+pivot: pivot.cpp aggr_array.h util.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
 
 # ------
@@ -90,21 +88,23 @@ groupby_test: groupby_test.cpp groupby.h aggr.h util.h
 	$(CXX) -o groupby_test groupby_test.cpp $(LIBS)
 	./groupby_test
 	
-bucket_array_test: bucket_array_test.cpp bucket_array.h util.h aggr.h
-	$(CXX) -o bucket_array_test bucket_array_test.cpp $(LIBS)
-	./bucket_array_test
+aggr_array_test: aggr_array_test.cpp aggr_array.h util.h aggr.h
+	$(CXX) -o aggr_array_test aggr_array_test.cpp $(LIBS)
+	./aggr_array_test
 
 # --------------
 # Documentation.
 # --------------
 
-manual.pdf: manual.tex
+manual: manual.tex
 	pdflatex manual.tex 
 	pdflatex manual.tex 
+	cp manual.pdf $(DISTDIR)/
 
-reference.pdf: FORCE
+reference: FORCE
 	doxygen doxycfg
 	cd reference && $(MAKE)
 	cp reference/refman.pdf reference.pdf
+	cp reference.pdf $(DISTDIR)/
 
 FORCE:

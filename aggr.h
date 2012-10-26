@@ -151,7 +151,7 @@ namespace aggr {
 	/// Computes the gaussian confidence interval of the values that are
 	///	put into it. Note that it depends on the boost statistical
 	///	helpers.
-	class conf_int_gauss : public aggregator {
+	class ci_gauss : public aggregator {
 		double _alpha;	///< The confidence level.
 		count _count;	///< The inner count aggregator.
 		mean _mean;	///< The inner mean aggregator.
@@ -160,7 +160,7 @@ namespace aggr {
 		/// @brief The constructor.
 		///
 		/// @param[in] alpha The confidence level.
-		conf_int_gauss(double alpha) : _alpha(alpha) {}
+		ci_gauss(double alpha) : _alpha(alpha) {}
 
 		// Aggregator interface.
 		// ---------------------
@@ -191,7 +191,7 @@ namespace aggr {
 	///
 	/// @exception std::string The input string doesn't allow constructing
 	///	any available aggregator.
-	unique_ptr<aggregator> create_from_string(string str) {
+	ptr create_from_string(string str) {
 
 		// Simple, no argument cases.
 		// --------------------------
@@ -214,7 +214,7 @@ namespace aggr {
 			ss << match[1];
 			ss >> conf_lvl;
 
-			return unique_ptr<aggregator>(new conf_int_gauss(conf_lvl));
+			return unique_ptr<aggregator>(new ci_gauss(conf_lvl));
 		}
 
 		// No case satisfied. Abort.

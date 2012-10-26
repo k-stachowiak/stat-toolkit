@@ -1,3 +1,6 @@
+#ifndef AGGR_ARRAY_H
+#define AGGR_ARRAY_H
+
 #include <map>
 using std::map;
 
@@ -26,15 +29,15 @@ using boost::unordered_map;
 #include "util.h"
 #include "aggr.h"
 
-namespace buck_arr {
+namespace aggr_arr {
 
 /// @brief Defines one of the bucket's coordinates.
 class coord {
 	/// The label values definint the coordinate.
-	map<string, string> _label_map;
+	map<uint32_t, string> _label_map;
 
 	/// @brief Private constructor.
-	coord(const map<string, string>& label_map)
+	coord(const map<uint32_t, string>& label_map)
 	: _label_map(label_map) {}
 
 public:
@@ -43,9 +46,8 @@ public:
 	/// @param[in] label_map def The column indices to define the coordinate.
 	/// @param[in] columns The columns of the original data set.
 	/// @param[in] row The data row for the coordinate to be built with.
-	static coord from_def_cols_row(
-			const vector<string>& label_map_def,
-			const vector<string>& columns,
+	static coord from_def_row(
+			const vector<uint32_t>& label_map_def,
 			const vector<string>& row) {
 
 		// For each of the definition labels an according index is found
@@ -53,10 +55,9 @@ public:
 		// row at the given index is associated with the given
 		// definition label.
 
-		map<string, string> label_map;
+		map<uint32_t, string> label_map;
 		for(auto& def : label_map_def) {
-			uint32_t index = index_of(columns, def);
-			label_map[def] = row[index];
+			label_map[def] = row[def];
 		}
 
 		return coord(label_map);
@@ -65,10 +66,10 @@ public:
 	/// @brief Generates a string representation of this object.
 	///
 	/// @returns The string representation of this object.
-	string to_string() const {
+	string str() const {
 		stringstream ss;
 		for(const auto& pr : _label_map) {
-			ss << pr.first << " = " << pr.second << ", ";
+			ss << "col " << pr.first << " = " << pr.second << ", ";
 		}
 		return ss.str();
 	}
@@ -108,13 +109,17 @@ public:
 			_coords.push_back(coord);
 	}
 
+	const coord& coordinate(uint32_t index) const {
+		return _coords.at(index);
+	}
+
 	/// @brief Generates a string representation of this object.
 	///
 	/// @returns The string representation of this object.
-	string to_string() const {
+	string str() const {
 		stringstream ss;
 		for(uint32_t i = 0; i < _coords.size(); ++i) {
-			ss << "coord(" << _coords.at(i).to_string() << ")";
+			ss << "coord(" << _coords.at(i).str() << ")";
 			if(i < (_coords.size() - 1))
 				ss << ", ";
 		}
@@ -139,13 +144,13 @@ public:
 };
 
 /// @brief The data organizing table
-class table {
+class array {
 	// Configuration.
 	// --------------
 	
 	/// The dimension defining columns the indexing is:
-	///	...[dimension][label]
-	vector<vector<string>> _dim_defs;
+	///	...[dimension][column-index]
+	vector<vector<uint32_t>> _dim_defs;
 
 	/// The bucket mapping: consumed column ind. -> buck. constr. str.
 	vector<pair<uint32_t, string>> _bucket_constrs;
@@ -158,17 +163,20 @@ class table {
 
 public:
 	/// @brief Simple member by member constructor.
-	table(const vector<vector<string>>& dim_defs,
+	array(const vector<vector<uint32_t>>& dim_defs,
 	      vector<pair<uint32_t, string>> bucket_constrs)
 	: _dim_defs(dim_defs)
 	, _bucket_constrs(bucket_constrs)
 	{}
 
+	bool num_dimensions() const {
+		return _dim_defs.size();
+	}
+
 	/// @brief Inserts data from a given row into this table.
 	///
-	/// @param[in] columns The columns of the original data.
 	/// @param[in] row The row to be inserted.
-	void consume_row(const vector<string>& columns, const vector<string>& row) {
+	void consume_row(const vector<string>& row) {
 
 		stringstream ss;
 		
@@ -176,8 +184,7 @@ public:
 		// ------------------------------------------------
 		vector<coord> base_coords;
 		for(const auto& def : _dim_defs)
-			base_coords.push_back(coord::from_def_cols_row(
-				def, columns, row));
+			base_coords.push_back(coord::from_def_row(def, row));
 
 		// Initialize the position object.
 		position pos(base_coords);
@@ -186,8 +193,10 @@ public:
 		// -------------------------------------------
 		for(const auto& pr : _bucket_constrs) {
 
-			string col = columns.at(pr.first);
-			string key = pr.second + "(" + col + ")";
+			stringstream keyss;
+			keyss << pr.second << "(" << pr.first << ")";
+
+			string key(keyss.str());
 
 			// Construct bucket if necessary.
 			if(_buckets.find(pos) == end(_buckets))
@@ -210,7 +219,7 @@ public:
 		}
 	}
 
-	void for_each_aggr(function<void(const position&, const string&, double)> f) {
+	void for_each_aggr(function<void(const position&, const string&, double)> f) const {
 		for(const auto& pos_bucks : _buckets) {
 			const position& pos = pos_bucks.first;
 			for(const auto& key_aggr : pos_bucks.second) {
@@ -223,3 +232,5 @@ public:
 };
 
 }
+
+#endif

@@ -106,7 +106,7 @@ TEST(string_based_construction_test) {
 	CHECK(dynamic_cast<aggr::stdev*>(ptr.get()));
 
 	ptr = aggr::create_from_string("ci_gauss 75.0");
-	CHECK(dynamic_cast<aggr::conf_int_gauss*>(ptr.get()));
+	CHECK(dynamic_cast<aggr::ci_gauss*>(ptr.get()));
 }
 
 int main() {

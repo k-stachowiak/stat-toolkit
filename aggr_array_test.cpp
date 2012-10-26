@@ -25,7 +25,7 @@ using std::endl;
 #include <unittest++/UnitTest++.h>
 using namespace UnitTest;
 
-#include "bucket_array.h"
+#include "aggr_array.h"
 
 static const double TOLERANCE = 0.01;
 
@@ -39,7 +39,6 @@ TEST(test_name) {
 
 	// The input data table.
 	vector<vector<string>> rows {
-		{ _(col1), _(col2), _(col3), _(col4) },
 		{ _(0),    _(0),    _(0),    _(1) },
 		{ _(0),    _(0),    _(2),    _(3) },
 		{ _(0),    _(1),    _(4),    _(5) },
@@ -51,8 +50,8 @@ TEST(test_name) {
 	};
 
 	// The basic dimension definitions.
-	vector<vector<string>> dim_defs {
-		{ _(col1), _(col2) }
+	vector<vector<uint32_t>> dim_defs {
+		{ 1, 2 }
 	};
 
 	// The bucket constructors.
@@ -67,24 +66,21 @@ TEST(test_name) {
 
 	// Instantiate SUT.
 	// ----------------
-	buck_arr::table tbl(dim_defs, bucket_constrs);
+	aggr_arr::array arr(dim_defs, bucket_constrs);
 
 	// Exercise SUT.
 	// -------------
-	auto it = begin(rows);
-	vector<string> columns = *(it++);
-
-	while(it != end(rows))
-		tbl.consume_row(columns, *(it++));
+	for(const auto& row : rows)
+		arr.consume_row(row);
 
 	// Verify the results.
 	// -------------------
-	tbl.for_each_aggr([](
-			const buck_arr::position& pos,
+	arr.for_each_aggr([](
+			const aggr_arr::position& pos,
 			const string& aggr_str,
 			double value) {
 			
-		cout << "pos(" << pos.to_string() << "), " <<
+		cout << "pos(" << pos.str() << "), " <<
 			"aggr(" << aggr_str << ")," <<
 			"val(" << value << ")" << endl;
 	});

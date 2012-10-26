@@ -211,8 +211,8 @@ int main(int argc, char** argv) {
 		print_results(groups, cout, args);
 
 		return 0;
-	}
-	catch(string ex) {
+
+	} catch(string ex) {
 		cout << "Error : " << ex << endl;
 		return 1;
 	}

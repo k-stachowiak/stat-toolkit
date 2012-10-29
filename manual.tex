@@ -291,6 +291,57 @@ $cat data | ./groupby -g1 -g0 -a "3 mean" -a "2 sum"
 6	100	3	4
 \end{verbatim}
 
+\section{\texttt{pivot}}
+
+\subsection{Summary}
+This program performs a pivot table analysis of the input data. It enables
+selecting 2 or 3 dimensions for the result space, selecting a set of the
+aggregators and few additional minor settings.
+
+\subsubsection{Dinemsions}
+2 or 3 dimensions can be defined. I the respective cases these are: page, row
+and column, or just row and column. Their interpretation is that all the values
+at a given coordinate, say in the given page, come from the input rows that fultil
+the dimension definition. Since the dimension is given by a pair: input column,
+value, fulfuling dimension definition means that the given input data row has
+a particular value in the column x, another particular value in the column y, etc.
+
+\subsubsection{Aggregations}
+The aggregations determine, how the values in the resulting table will be obtained.
+Usually many values from the input rows will be directed to a given cell (defined
+by a set of 2 or 3 coordinates). All the values are aggregated so the result may
+be obtained. The aggregation is defined by a source column index and the aggregator
+construction string. For the details on the aggregator construction strings see
+the manual section for the \texttt{aggr} library.
+
+\subsubsection{Extending dimensions with the aggregators}
+Based on the dimensions definitions and the input data, the particular coordinates
+are created and at each of the coordinates instances of all the requested aggregators
+are placed. This means that for every cell in the table defined by the dimension
+definitions, multiple results will be presented. This requires extending one of the
+output table's dimensions and by default the columns are extended, which is the
+most convenient solutions in most cases. If the extension of the rows dimension
+is required, an additional option: \texttt{-R} must be added to the command line
+which will alter the output accordingly.
+
+\subsubsection{Decorating the output table}
+Demending on the purpose the output table may or may not need to be described. If
+we expect further processing in the pipeline it may be more convenient to only
+print the values, whereas if the result is to be analyzed by a human, the row and
+the column captions should be added. By default the captions(headers) are not
+printed, but the behavior may be altered by adding an option: \texttt{-h} to the
+command line.
+
+\subsubsection{The input data header}
+The input data set may or may not contain an additional header row providing
+labels for the columns. Even though the input options (e.g. the dimension
+definitions) is always given by the column indices, the ouptut may be more
+readable if based on the original column captions (an aggregator may tor example
+be labeled "mean(result)" instead of "mean(4)". To indicate that the first input
+row should be interpreted as the header row providing the captions an option:
+\texttt{-H} must be added to the command line.
+
+
 \section{\texttt{tabularize}}
 
 \subsection{Summary}
@@ -398,5 +449,7 @@ a simgle column, two columns are created: one for the value from the column
 "c4" and one for the value from the column "c5". We say that the columns
 dimension has been expanded with the data columns from the input. This behavior
 may be altered with a command line argument.
+
+
 
 \end{document}

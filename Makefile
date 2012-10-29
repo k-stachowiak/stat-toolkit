@@ -1,14 +1,17 @@
 CXX = g++ -O0 -g --std=gnu++0x
-LIBS = -lboost_math_tr1 -lUnitTest++
+LIBS = -lboost_math_tr1
 DISTDIR = dist
 
 .PHONY: all test cli doc
+
+default: cli
 
 # -------------
 # Main targets.
 # -------------
 
-default: cli
+xfiles: xfiles.cpp
+	$(CXX) -o xfiles xfiles.cpp
 
 all: test cli doc
 
@@ -79,19 +82,19 @@ pivot: pivot.cpp aggr_array.h util.h aggr.h
 # ------
 
 aggr_test: aggr_test.cpp aggr.h
-	$(CXX) -o aggr_test aggr_test.cpp $(LIBS)
+	$(CXX) -o aggr_test aggr_test.cpp $(LIBS) -lUnitTest++
 	./aggr_test
 
 histogram_test: histogram_test.cpp histogram.h
-	$(CXX) -o histogram_test histogram_test.cpp $(LIBS)
+	$(CXX) -o histogram_test histogram_test.cpp $(LIBS) -lUnitTest++
 	./histogram_test
 
 groupby_test: groupby_test.cpp groupby.h aggr.h util.h
-	$(CXX) -o groupby_test groupby_test.cpp $(LIBS)
+	$(CXX) -o groupby_test groupby_test.cpp $(LIBS) -lUnitTest++
 	./groupby_test
 	
 aggr_array_test: aggr_array_test.cpp aggr_array.h util.h aggr.h
-	$(CXX) -o aggr_array_test aggr_array_test.cpp $(LIBS)
+	$(CXX) -o aggr_array_test aggr_array_test.cpp $(LIBS) -lUnitTest++
 	./aggr_array_test
 
 # --------------

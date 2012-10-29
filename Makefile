@@ -8,7 +8,9 @@ DISTDIR = dist
 # Main targets.
 # -------------
 
-all: test cli
+default: cli
+
+all: test cli doc
 
 test: aggr_test histogram_test groupby_test aggr_array_test
 

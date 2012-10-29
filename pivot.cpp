@@ -23,6 +23,9 @@ using boost::xpressive::_s;
 using boost::xpressive::_;
 using boost::xpressive::eos;
 
+#include <boost/unordered_set.hpp>
+using boost::unordered_set;
+
 #include "util.h"
 #include "aggr_array.h"
 
@@ -40,15 +43,22 @@ pair<uint32_t, string> parse_aggr_arg(string arg) {
 	smatch match;
 	sregex re = (s1 = +_d) >> +_s >> (s2 = +_) >> eos;
 
-	if(!regex_match(arg, match, re))
-		throw string("Failed parsing a dimension argument.");
+	if(!regex_match(arg, match, re)) {
+		stringstream errorss;
+		errorss << "Failed parsing an aggregator argument \"" << arg << "\".";
+		throw errorss.str();
+	}
 
 	uint32_t index;
 	stringstream indexss;
 	indexss << match[1];
 	indexss >> index;
-	if(indexss.fail())
-		throw string("Failed parsing the index part of the dimension arument.");
+	if(indexss.fail()) {
+		stringstream errorss;
+		errorss << "Failed parsing the index part of the aggregator arument \""
+			<< arg << "\".";
+		throw errorss.str();
+	}
 
 	string aggr_str(match[2]);
 
@@ -59,7 +69,6 @@ vector<uint32_t> parse_dim_arg(string arg) {
 
 	vector<uint32_t> result;
 	
-	stringstream converter;
 	uint32_t index;
 
 	char base_str[arg.size() + 1];
@@ -67,12 +76,17 @@ vector<uint32_t> parse_dim_arg(string arg) {
 
 	char* pch = strtok(base_str, " ");
 	while(pch) {
+		stringstream converter;
 		converter << pch;
 		converter >> index;
-		if(converter.fail())
-			throw string("Failed parsing dimension index.");
+		if(converter.fail()) {
+			stringstream errorss;
+			errorss << "Failed parsing dimension index \"" << pch << "\".";
+			throw errorss.str();
+		}
 
 		result.push_back(index);
+		pch = strtok(0, " ");
 	}
 
 	return result;
@@ -147,9 +161,9 @@ void print_page(const unordered_map<aggr_arr::coord, unordered_map<aggr_arr::coo
 
 	// Gather all the dimensions.
 	// --------------------------
-	set<aggr_arr::coord> all_row_coords;
-	set<aggr_arr::coord> all_column_coords;
-	set<string> all_aggr_names;
+	unordered_set<aggr_arr::coord> all_row_coords;
+	unordered_set<aggr_arr::coord> all_column_coords;
+	unordered_set<string> all_aggr_names;
 
 	for(const auto& rcoord_columns : page) {
 		all_row_coords.insert(rcoord_columns.first);
@@ -167,17 +181,42 @@ void print_page(const unordered_map<aggr_arr::coord, unordered_map<aggr_arr::coo
 	// Note that the end-lines will be printed more often for the case
 	// of the extended rows which actually shouldn't be surprising at all.
 	if(args.extend_rows) {
+
+		// Print columns header.
+		for(const auto& c : all_column_coords)
+			out << c.str() << args.delim;
+		out << endl;
+
+		// Print data.
 		for(const auto& r : all_row_coords) {
 			for(const auto& a : all_aggr_names) {
-				for(const auto& c : all_column_coords) {
+
+				// Row header.
+				out << r.str() << "; " << a << args.delim;
+				
+				// Row data.
+				for(const auto& c : all_column_coords)
 					out << page.at(r).at(c).at(a) << args.delim;
-				}
+
 				// Note that we do endl for each aggregator here.
 				out << endl;
 			}
 		}
 	} else {
+		
+		// Pront columns header.
+		for(const auto& c : all_column_coords)
+			for(const auto& a : all_aggr_names)
+				cout << c.str() << "; " << a << args.delim;
+		out << endl;
+
+		// Print data.
 		for(const auto& r : all_row_coords) {
+
+			// Row header.
+			out << r.str() << args.delim;
+
+			// Print data.
 			for(const auto& c : all_column_coords) {
 				for(const auto& a : all_aggr_names) {
 					out << page.at(r).at(c).at(a) << args.delim;

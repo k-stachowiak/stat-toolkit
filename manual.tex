@@ -30,373 +30,225 @@ used separately.}.
 
 \section{\texttt{aggr.h}}
 
-\subsection{Summary}
-The \texttt{aggr.h} library provides a set of classes for aggregating data.
-All onf its contents are enclosed within the \texttt{aggr} namespace. The
-aggregation classes are derived from an abstract class \texttt{aggregator}
-which defines the concept of an aggregator. The interface is simple and
-consists of two functions: \texttt{put} and \texttt{get}.
+	\subsection{Summary}
+	The \texttt{aggr.h} library provides a set of classes for aggregating data.
+	All onf its contents are enclosed within the \texttt{aggr} namespace. The
+	aggregation classes are derived from an abstract class \texttt{aggregator}
+	which defines the concept of an aggregator. The interface is simple and
+	consists of two functions: \texttt{put} and \texttt{get}.
 
-\begin{itemize}
-	\item \texttt{put(value : double) : void}\\
-		This function allows storing a value in the aggregator.
-	\item \texttt{get() : double}\\
-		This function returns a value that is the result of the
-		underlying agregation.
-\end{itemize}
+	\begin{itemize}
+		\item \texttt{put(value : double) : void}\\
+			This function allows storing a value in the aggregator.
+		\item \texttt{get() : double}\\
+			This function returns a value that is the result of the
+			underlying agregation.
+	\end{itemize}
 
-The input values aren't stored as in case of large data sets it could drain the
-available memory and is not really necessary. Therefore the \texttt{get}
-function may be called at any time as the aggregators are designed to compute
-their results dynamically. 
+	The input values aren't stored as in case of large data sets it could drain the
+	available memory and is not really necessary. Therefore the \texttt{get}
+	function may be called at any time as the aggregators are designed to compute
+	their results dynamically. 
 
-\paragraph{Note}
-A convenient typedef has been placed in the \texttt{aggr} namespace to ease
-defining types based on an abstract pointer to an aggregator:\\
-\texttt{typedef unique\_ptr<aggregator> ptr;}
+	\paragraph{Note}
+	A convenient typedef has been placed in the \texttt{aggr} namespace to ease
+	defining types based on an abstract pointer to an aggregator:\\
+	\texttt{typedef unique\_ptr<aggregator> ptr;}
 
-\subsubsection{Available aggregators}
-There is a set of basic classes that the library provides:
+	\subsubsection{Available aggregators}
+	There is a set of basic classes that the library provides:
 
-\begin{itemize}
-	\item \texttt{count} - Counts the elements that are put into the aggregator.
-	\item \texttt{sum} - Sums the elements that are put into the aggregator.
-	\item \texttt{mean} - Computes the mean value of the input values.
-	\item \texttt{stdev} - Computes the standard deviation of the input values.
-	\item \texttt{ci\_gauss} - Computes the width of the confidence
-		interval defined based on the input data and a predefined
-		confidence levelm, assuming normal distribution.
-\end{itemize}
+	\begin{itemize}
+		\item \texttt{count} - Counts the elements that are put into the aggregator.
+		\item \texttt{sum} - Sums the elements that are put into the aggregator.
+		\item \texttt{mean} - Computes the mean value of the input values.
+		\item \texttt{stdev} - Computes the standard deviation of the input values.
+		\item \texttt{ci\_gauss} - Computes the width of the confidence
+			interval defined based on the input data and a predefined
+			confidence levelm, assuming normal distribution.
+	\end{itemize}
 
-\subsubsection{Uniform aggregators construction}
-All the aggregators can be instantiated uniformly with use of the function:
-\texttt{create\_from\_string(str : string) : unique\_ptr<aggregator>}.
-It is used by all the command line tools that accept the aggregator definitions
-from the command line arguments. The format for the string constructing an
-aggregator is:
-\begin{center}
-	\texttt{\textit{aggregator-name} [\texttt{aggregator-argument-list}]}
-\end{center}
-The function will throw a string object upon receiving an unrecognized constructor
-string.
+	\subsubsection{Uniform aggregators construction}
+	All the aggregators can be instantiated uniformly with use of the function:
+	\texttt{create\_from\_string(str : string) : unique\_ptr<aggregator>}.
+	It is used by all the command line tools that accept the aggregator definitions
+	from the command line arguments. The format for the string constructing an
+	aggregator is:
+	\begin{center}
+		\texttt{\textit{aggregator-name} [\texttt{aggregator-argument-list}]}
+	\end{center}
+	The function will throw a string object upon receiving an unrecognized constructor
+	string.
 
-The aggregator names are the same as the names of the respective classes. Currently
-only one of the aggregators requires an argument, which is the \texttt{ci\_gauss}
-expecting a single argument - the confidence level.
+	The aggregator names are the same as the names of the respective classes. Currently
+	only one of the aggregators requires an argument, which is the \texttt{ci\_gauss}
+	expecting a single argument - the confidence level.
+
+\section{aggr\_array.h}
+
+	\subsection{Summary}
+	The \texttt{aggr\_array.h} library provides means of defining a multidimensional
+	array of aggregators. This library is a core for the pivot table generation tool
+	but may be generalized to an arbitrary number of dimensions.
+
+	The foundation of the library is an object of the class \texttt{array}, which is
+	initialized with a list of dimensions and a list of the aggregator definitions.
+	The dimension definition is a list of indices defining the columns which will
+	form the given dimension. By the columns forming a dimension we mean that in the
+	resumting array, all the values in the given dimension will come from the input
+	rows having the same values in the forming columns. The aggregator definitions
+	consist of pairs of the form: column index, aggregator constructor. The
+	aggregators used in this library are taken from the \texttt{aggr.h} library.
+	Therefore an aggregator assigned to a given column will be collecting the values
+	from the input rows from the column. This way many aggregators may draw the input
+	values from the same input column.
 
 \chapter{Command Line Interface tools}
 
 \section{\texttt{histogram}}
 
-\subsection{All options}
-\begin{itemize}
-	\item \texttt{-d} \textit{delimiter} -- Allows selection of a custom
-		delimiter for the output data.
-	\item \texttt{-w} \textit{bucket-width} -- Determines the width of the
-		histogram bucket. The default value is 1.0.
-\end{itemize}
+	\subsection{All options}
+	\begin{itemize}
+		\item \texttt{-d} \textit{delimiter} -- Allows selection of a custom
+			delimiter for the output data.
+		\item \texttt{-w} \textit{bucket-width} -- Determines the width of the
+			histogram bucket. The default value is 1.0.
+	\end{itemize}
 
-\subsection{Summary}
-The program takes a list of numbers, one number per line and builds
-a histogram of the provided distribution. The default bucket width is 1.0,
-but this setting may be overriden with use of the \texttt{-w \textit{width}}
-option.
+	\subsection{Summary}
+	The program takes a list of numbers, one number per line and builds
+	a histogram of the provided distribution. The default bucket width is 1.0,
+	but this setting may be overriden with use of the \texttt{-w \textit{width}}
+	option.
 
-The output consists of two columns. The first column is built of the bucket
-center values, whereas in the second columnt the number of the results that
-fell into the according bucket is given. By default the columns are separated
-with the tab character, but this behavior can be altered with use of the
-\texttt{-d \textit{delimiter}} option.
+	The output consists of two columns. The first column is built of the bucket
+	center values, whereas in the second columnt the number of the results that
+	fell into the according bucket is given. By default the columns are separated
+	with the tab character, but this behavior can be altered with use of the
+	\texttt{-d \textit{delimiter}} option.
 
-The program automatically generates empty buckets for the ranges, for which
-there were no results, therefore the data is ready for further processing.
-
-\subsection{Examples}
-Let's assume that we have a file consisting of several numbers:
-\begin{verbatim}
-$ cat values1
-1.0
-2.0
-3.0
-4.0
-5.0
-6.0
-7.0
-\end{verbatim}
-
-The default behavior of the program will be the following:
-\begin{verbatim}
-$cat values1 | ./histogram
-1	1
-2	1
-3	1
-4	1
-5	1
-6	1
-7	1
-\end{verbatim}
-
-We may alter the default behavior by changing hte width of the buckets:
-\begin{verbatim}
-$cat values1 | ./histogram -w 3
-0	1
-3	3
-6	3
-\end{verbatim}
-
-In order to clarify the program's behavior let's consider a case with negative values
-present in the input set as well as the case of empty buckets. Let's assume another
-input set:
-\begin{verbatim}
-$cat values2
--7.0
--2.0
--1.0
-0.0
-1.0
-2.0
-3.0
-\end{verbatim}
-
-Now let's see an output for the case the bucket is narrow enough that one of the
-intervals ends up empty:
-\begin{verbatim}
-$cat values | ./histogram -w 2
--6	1
--4	0
--2	1
-0	2
-2	2
-4	1
-\end{verbatim}
+	The program automatically generates empty buckets for the ranges, for which
+	there were no results, therefore the data is ready for further processing.
 
 \section{\texttt{aggr}}
 
-\subsection{Summary}
-This trivial tool accepts a list of numbers at its standard input and performs 
-one of the basic aggregations. The aggregator is shosen by the one and only
-command line argument, which is the aggregator construction string. For the
-details on the available aggregators and their respective construction strings
-see the manual for the \texttt{aggr.h} library.
+	\subsection{Summary}
+	This trivial tool accepts a list of numbers at its standard input and performs 
+	one of the basic aggregations. The aggregator is shosen by the one and only
+	command line argument, which is the aggregator construction string. For the
+	details on the available aggregators and their respective construction strings
+	see the manual for the \texttt{aggr.h} library.
 
 \section{\texttt{groupby}}
 
-\subsection{All options}
-\begin{itemize}
-	\item \texttt{-a} \textit{constr-string} -- defines an aggregator with a
-		so called construction string.
-	\item \texttt{-d} \textit{delim-char} -- defines a custom delimiter.
-		The default value is the tab character.
-	\item \texttt{-g} \textit{group-index} -- defines a groupping criterion.
-\end{itemize}
+	\subsection{All options}
+	\begin{itemize}
+		\item \texttt{-a} \textit{constr-string} -- defines an aggregator with a
+			so called construction string.
+		\item \texttt{-d} \textit{delim-char} -- defines a custom delimiter.
+			The default value is the tab character.
+		\item \texttt{-g} \textit{group-index} -- defines a groupping criterion.
+	\end{itemize}
 
-\subsection{Summary}
-The program performs SQL-like groupping aggregation of a set of data given by a
-stream of tabuarized textual data.
+	\subsection{Summary}
+	The program performs SQL-like groupping aggregation of a set of data given by a
+	stream of tabuarized textual data.
 
-A stream of data rows separated with a linebreak is expected. The default
-field separator is the tab character, but may be altered with the
-\texttt{-d \textit{delimiter}} option. The output is defined by two sets
-of the data processing elments: the groupping criteria and the aggregators.
-It is required that there is at least one groupping criterion and at least one
-aggregator defined in the command line. Note that they will appear in the output
-in the same order in which they're given in the command line.
+	A stream of data rows separated with a linebreak is expected. The default
+	field separator is the tab character, but may be altered with the
+	\texttt{-d \textit{delimiter}} option. The output is defined by two sets
+	of the data processing elments: the groupping criteria and the aggregators.
+	It is required that there is at least one groupping criterion and at least one
+	aggregator defined in the command line. Note that they will appear in the output
+	in the same order in which they're given in the command line.
 
-\subsubsection{Groupping criteria}
-The grouppers are equivalent to the SQL's ``group by'' statements.
-Assumed that we have selected a set of grouppers for fields f1, f2, etc.,
-All the input data rows that have the same values in these fields will be
-considered groupped. We will be furhter saying they belong to a single group.
-The fields are given by indices; in order to define a groupping criterion we use
-a \texttt{-g \textit{column-index}} option.
+	\subsubsection{Groupping criteria}
+	The grouppers are equivalent to the SQL's ``group by'' statements.
+	Assumed that we have selected a set of grouppers for fields f1, f2, etc.,
+	All the input data rows that have the same values in these fields will be
+	considered groupped. We will be furhter saying they belong to a single group.
+	The fields are given by indices; in order to define a groupping criterion we use
+	a \texttt{-g \textit{column-index}} option.
 
-\subsubsection{Aggregators}
-The aggregators define the way in which given values for the specific fields
-are to be put together. Defining an aggregator consists in providing a
-\texttt{-a "\textit{field-index} \textit{aggr-constr}"} option, where the
-\textit{field-index} indicates the field that is to be aggregated by the
-current aggregator and \textit{aggr-constr} means the string constructing
-a given aggregator. The field index is a non-negative, zero-based index
-of a particular column, and the constructor string is the name of the
-aggregator followed by optional, aggregator-specific arguments. For details see
-the aggregator construction in the manual for the \texttt{aggr.h} library.
+	\subsubsection{Aggregators}
+	The aggregators define the way in which given values for the specific fields
+	are to be put together. Defining an aggregator consists in providing a
+	\texttt{-a "\textit{field-index} \textit{aggr-constr}"} option, where the
+	\textit{field-index} indicates the field that is to be aggregated by the
+	current aggregator and \textit{aggr-constr} means the string constructing
+	a given aggregator. The field index is a non-negative, zero-based index
+	of a particular column, and the constructor string is the name of the
+	aggregator followed by optional, aggregator-specific arguments. For details see
+	the aggregator construction in the manual for the \texttt{aggr.h} library.
 
-For example in order to define an aggregator for the field 3 that will compute
-the gaussion confidence interval at the confidence level of 0.95 the argument
-line should be:
+	For example in order to define an aggregator for the field 3 that will compute
+	the gaussion confidence interval at the confidence level of 0.95 the argument
+	line should be:
 
-\texttt{... | ./groupby ... -a "3 ci\_gauss 0.95" ...}
+	\texttt{... | ./groupby ... -a "3 ci\_gauss 0.95" ...}
 
-\subsubsection{Output format}
-Let's assume that fields \texttt{f1, f2, ...} have been chosen as the
-grouppers and aggregators \texttt{a1, a2, ...} have been selected.
-The results will take the following form:
-\begin{verbatim}
-f1 f2 ... a1 a2 ...
-i1 i2 ... v1 v2 ...
-i3 i4 ... v3 v4 ...
-\end{verbatim}
+	\subsubsection{Output format}
+	Let's assume that fields \texttt{f1, f2, ...} have been chosen as the
+	grouppers and aggregators \texttt{a1, a2, ...} have been selected.
+	The results will take the following form:
+	\begin{verbatim}
+	f1 f2 ... a1 a2 ...
+	i1 i2 ... v1 v2 ...
+	i3 i4 ... v3 v4 ...
+	\end{verbatim}
 
-... where \texttt{i1, i2, ...} -- the "indicators" -- are the labels for
-the given fields that have been captured and \texttt{v1, v2, ...} are
-the computed aggregated values.
+	... where \texttt{i1, i2, ...} -- the "indicators" -- are the labels for
+	the given fields that have been captured and \texttt{v1, v2, ...} are
+	the computed aggregated values.
 
-\subsection{Examples}
-Let's consider a simple dataset:
-\begin{verbatim}
-$cat data
-50	4	1.0	2.0
-50	4	3.0	4.0
-50	6	1.0	2.0
-50	6	3.0	4.0
-100	4	1.0	2.0
-100	4	3.0	4.0
-100	6	1.0	2.0
-100	6	3.0	4.0
-\end{verbatim}
+	\subsection{Examples}
+	Let's consider a simple dataset:
+	\begin{verbatim}
+	$cat data
+	50	4	1.0	2.0
+	50	4	3.0	4.0
+	50	6	1.0	2.0
+	50	6	3.0	4.0
+	100	4	1.0	2.0
+	100	4	3.0	4.0
+	100	6	1.0	2.0
+	100	6	3.0	4.0
+	\end{verbatim}
 
-Let's now take a look at different results depending on the input options.
+	Let's now take a look at different results depending on the input options.
 
-\begin{verbatim}
-$cat data | ./groupby -g1 -a "2 sum"
-1	"2 sum"
-4	8
-6	8
-\end{verbatim}
+	\begin{verbatim}
+	$cat data | ./groupby -g1 -a "2 sum"
+	1	"2 sum"
+	4	8
+	6	8
+	\end{verbatim}
 
-\begin{verbatim}
-$cat data | ./groupby -g0 -g1 -a "2 sum" -a "3 mean"
-0	1	"2 sum"	"3 mean"
-50	4	4	3
-50	6	4	3
-100	4	4	3
-100	6	4	3
-\end{verbatim}
+	\begin{verbatim}
+	$cat data | ./groupby -g0 -g1 -a "2 sum" -a "3 mean"
+	0	1	"2 sum"	"3 mean"
+	50	4	4	3
+	50	6	4	3
+	100	4	4	3
+	100	6	4	3
+	\end{verbatim}
 
-\begin{verbatim}
-$cat data | ./groupby -g1 -g0 -a "2 sum" -a "3 mean"
-1	0	"2 sum"	"3 mean"
-4	50	4	3
-6	50	4	3
-4	100	4	3
-6	100	4	3
-\end{verbatim}
+	\begin{verbatim}
+	$cat data | ./groupby -g1 -g0 -a "2 sum" -a "3 mean"
+	1	0	"2 sum"	"3 mean"
+	4	50	4	3
+	6	50	4	3
+	4	100	4	3
+	6	100	4	3
+	\end{verbatim}
 
-\begin{verbatim}
-$cat data | ./groupby -g1 -g0 -a "3 mean" -a "2 sum"
-1	0	"3 mean"	"2 sum"
-4	50	3	4
-6	50	3	4
-4	100	3	4
-6	100	3	4
-\end{verbatim}
-
-\section{\texttt{tabularize}}
-
-\subsection{Summary}
-This program performs the tabularizing of the input data as in the pivot table
-tools. It is assumed that the data has been aggregated prior to the tabularizing
-which may be performed with the \texttt{groupby} tool.
-
-\texttt{tabularize} positions one-dimensional labeled series of data in a
-multi-dimensional array. We assume that the input is a stream of data rows,
-each of which consists of several columns. It is expected that the first input 
-row contains the input column headers as the input columns are referenced by the
-name in the results. Note however that in the command line options the input
-column \textit{indices} are expected.
-
-In order to spread the data in space we first divide the columns into the
-label columns and the data columns.
-
-\subsubsection{Label columns}
-The label columns are used to determine the position, so that one or more values
-from the label columns build a single \textit{coordinate}. The coordinate may
-indicate a page, row or columns in the output table.
-
-\subsubsection{Data columns}
-The columns which aren't selected as the label columns are implicitly treated as
-the data columns and the values they store are to be placed inside the output
-arrays.
-
-\paragraph{Note}
-Both, the input and output, are in form of a data table. Therefore it is important
-to distinguish, where the input rows/columns are refered to and when the output
-structure that is described. Therefore in this manual care has been taken 
-to explicitly indicate, which ones are mentioned, even if it makes the text
-noticably irritating.
-
-\subsubsection{Input}
-Three dimensions of the result can be defined:
-
-\begin{itemize}
-	\item \textit{pages} -- Optionnaly multiple tables may be build. Each
-		of the tables is considered a page.
-	\item \textit{rows} -- The rows in the output table. This set will define
-		rows for each page.
-	\item \textit{columns} -- The columns in the output table. The columns
-		set defines the columns in each of the pages.
-\end{itemize}
-
-The pages coordinate is optional, but the columns sets for the rows and columns
-must be provided.
-
-\subsubsection{How are the dimensions defined?}
-Let's assume that we want to define a table so that there are two row columns,
-say "col1" and "col2". The way the columns of the result table will be filled
-is that all the values that are placed in a given row come from the input data
-rows that have the same values in the columns "col1" and "col2" respectively.
-
-Accordingly we must define the output columns in terms of a set of input columns
-so that each of the values that is placed in a given output column comes from
-an input data row that has the same values in the according columns.
-
-The same may be said about the groupping of the results into pages.
-
-\subsubsection{How are multiple values handled?}
-One more thing must be said about the results. The values from all the input
-columns that have become the data columns will be placed in separate cells in the
-output table. Therefore if there are more than one data columns, this will result
-in an expansion of one of the dimensions (rows or columns).
-
-\subsubsection{How to avoid location conflicts?}
-For all the input data rows, the output coordinates must be unique, as they are
-defining the precise coordinates in the output structures. The program can deal
-with multiple data columns, even if all the values from a given input row have the
-same output coordinates. This is handled in the way that in the output table one
-of the coordinates is expanded with the data column name. The coordinate expanded
-this way is still unique as all the values for which the coordinate is repeated
-reside in differenf input columns (since they come from a single input row). On
-the other hands if the values are duplicated for different input rows, collision
-occurs as there are many values that are bound to the same output coordinates
-\textit{and} that come from the same input columns, which breaks their general
-uniqueness.
-
-\subsubsection{Output}
-Let's assume that we have defined the following dimensions:
-\begin{itemize}
-	\item \textit{pages} -- No pages to simplify the example.
-	\item \textit{rows} -- "c1" and "c2" input columns.
-	\item \textit{columns} -- "c3" input column.
-\end{itemize}
-
-Let's also assume that we have 2 additional columns: "c4" and "c5", which for
-the above mapping become the data columns implicitly. The resulting table will
-take the following form:
-
-\begin{verbatim}
-           | c3=x, c4 | c3=x, c5 | c3=y, c4 | c3=y, c5 | ...
------------+----------+----------+----------+----------+-----
-c1=r, c2=s | v0       | v1       | v2       | v3       | ...
------------+----------+----------+----------+----------+-----
-c1=t, c2=u | v0       | v1       | v2       | v3       | ...
------------+----------+----------+----------+----------+-----
-...        | ...      | ...      | ...      | ...      | ...
-\end{verbatim}
-
-Note that for the values of the columne "c3" equal to x, which should define
-a simgle column, two columns are created: one for the value from the column
-"c4" and one for the value from the column "c5". We say that the columns
-dimension has been expanded with the data columns from the input. This behavior
-may be altered with a command line argument.
+	\begin{verbatim}
+	$cat data | ./groupby -g1 -g0 -a "3 mean" -a "2 sum"
+	1	0	"3 mean"	"2 sum"
+	4	50	3	4
+	6	50	3	4
+	4	100	3	4
+	6	100	3	4
+	\end{verbatim}
 
 \end{document}

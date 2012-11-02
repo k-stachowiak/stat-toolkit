@@ -14,14 +14,13 @@ all: test cli doc
 
 test: aggr_test histogram_test groupby_test aggr_array_test
 
-cli: aggr histogram groupby tabularize pivot
+cli: aggr histogram groupby pivot
 	cp aggr $(DISTDIR)/
 	cp histogram $(DISTDIR)/
 	cp groupby $(DISTDIR)/
-	cp tabularize $(DISTDIR)/
 	cp pivot $(DISTDIR)/
 
-doc: manual reference
+doc: manual
 
 # --------------
 # Clean targets.
@@ -38,12 +37,10 @@ clean_cli:
 	rm -f $(DISTDIR)/aggr
 	rm -f $(DISTDIR)/histogram
 	rm -f $(DISTDIR)/groupby
-	rm -f $(DISTDIR)/tabularize
 	rm -f $(DISTDIR)/pivot
 	rm -f aggr
 	rm -f histogram
 	rm -f groupby 
-	rm -f tabularize
 	rm -f pivot
 
 clean_doc:
@@ -52,8 +49,6 @@ clean_doc:
 	rm -f manual.toc
 	rm -f manual.log
 	rm -f manual.pdf
-	rm -f $(DISTDIR)/reference.pdf
-	rm -f reference.pdf
 
 # ---------------------------------
 # The command line interface tools.
@@ -67,9 +62,6 @@ histogram: histogram.cpp histogram.h
 
 groupby: groupby.cpp groupby.h aggr.h util.h
 	$(CXX) $(LIBS) -o groupby groupby.cpp
-
-tabularize: tabularize.cpp tabularize.h 
-	$(CXX) $(LIBS) -o tabularize tabularize.cpp
 
 pivot: pivot.cpp aggr_array.h util.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
@@ -103,10 +95,3 @@ manual: manual.tex
 	pdflatex manual.tex 
 	cp manual.pdf $(DISTDIR)/
 
-reference: FORCE
-	doxygen doxycfg
-	cd reference && $(MAKE)
-	cp reference/refman.pdf reference.pdf
-	cp reference.pdf $(DISTDIR)/
-
-FORCE:

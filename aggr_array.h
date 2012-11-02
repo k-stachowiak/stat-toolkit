@@ -68,10 +68,72 @@ public:
 	/// @returns The string representation of this object.
 	string str() const {
 		stringstream ss;
-		for(const auto& pr : _label_map) {
+		for(const auto& pr : _label_map)
 			ss << "col " << pr.first << " = " << pr.second << ", ";
-		}
 		return ss.str();
+	}
+
+	/// @brief Generates a string representation of this object based on an
+	///	externally provided column index to name mappings.
+	///
+	/// @param[in] mapping The column index to name mapping.
+	///
+	/// @returns The string representation of the object.
+	string to_string(map<uint32_t, string> mapping) const {
+		stringstream ss;
+		for(const auto& pr : _label_map)
+			ss << mapping[pr.first] << " = " << pr.second << ", ";
+		return ss.str();
+	}
+
+	// Comparison operator for sorting.
+	friend bool coord_compare(const coord& lhs, const coord& rhs) {
+			
+		// Define some helper symbols
+		typedef map<uint32_t, string>::const_iterator lblmapit;
+		lblmapit lb = begin(lhs._label_map);
+		lblmapit le = end(lhs._label_map);
+		lblmapit rb = begin(rhs._label_map);
+		lblmapit re = end(rhs._label_map);
+
+		stringstream converter;
+
+		for(auto lit = lb, rit = rb; lit != le && rit != re; ++lit, ++rit) {
+
+			string lstr = lit->second;
+			string rstr = rit->second;
+
+			// Try converting, otherwise compare lexicographically.
+			bool converted = true;
+
+			double ldbl;
+			converter.seekg(0, std::ios_base::beg);
+			converter.str(lstr);
+			converter >> ldbl;
+			if(!converter)
+				converted = false;
+
+			double rdbl;
+			converter.seekg(0, std::ios_base::beg);
+			converter.str(rstr);
+			converter >> rdbl;
+			if(!converter)
+				converted = false;
+
+			// Decide on the comparison domain.
+			if(converted) {
+				if(ldbl != rdbl)
+					return ldbl < rdbl;
+
+			} else {
+				if(lstr != rstr)
+					return lstr < rstr;
+			}
+
+		}
+
+		// If we've got here then all the lbels must have been equal.
+		return false;
 	}
 
 	// Prepares the type to be stored in a hash based container.
@@ -92,6 +154,8 @@ public:
 		return hash_value(lhs) == hash_value(rhs);
 	}
 };
+
+bool coord_compare(const coord& lhs, const coord& rhs);
 
 /// @brief Defines a multidimensional position of a bucket.
 class position {
@@ -176,7 +240,9 @@ public:
 	/// @brief Inserts data from a given row into this table.
 	///
 	/// @param[in] row The row to be inserted.
-	void consume_row(const vector<string>& row) {
+	void consume_row(const vector<string>& row,
+			bool col_mapped,
+			map<uint32_t, string> column_map) {
 
 		stringstream ss;
 		
@@ -194,7 +260,10 @@ public:
 		for(const auto& pr : _bucket_constrs) {
 
 			stringstream keyss;
-			keyss << pr.second << "(" << pr.first << ")";
+			if(col_mapped)
+				keyss << pr.second << "(" << column_map[pr.first] << ")";
+			else
+				keyss << pr.second << "(" << pr.first << ")";
 
 			string key(keyss.str());
 

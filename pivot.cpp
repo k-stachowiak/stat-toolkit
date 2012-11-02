@@ -34,6 +34,8 @@ using boost::unordered_set;
 struct arguments {
 	char delim;
 	bool extend_rows;
+	bool print_headers;
+	bool expect_data_header;
 	vector<vector<uint32_t>> dimensions;
 	vector<pair<uint32_t, string>> aggr_map;
 };
@@ -97,9 +99,10 @@ arguments parse_args(int argc, char** argv) {
 	arguments args;
 	args.delim = '\t';
 	args.extend_rows = false;
+	args.print_headers = false;
 
 	int c;
-	while((c = getopt(argc, argv, "a:d:D:R")) != -1) {
+	while((c = getopt(argc, argv, "a:d:D:RhH")) != -1) {
 		switch(c) {
 		case 'a':
 			args.aggr_map.push_back(parse_aggr_arg(optarg));
@@ -124,6 +127,14 @@ arguments parse_args(int argc, char** argv) {
 			args.extend_rows = true;
 			break;
 
+		case 'h':
+			args.print_headers = true;
+			break;
+
+		case 'H':
+			args.expect_data_header = true;
+			break;
+
 		case '?':
 			if(optopt == 'a')
 				throw string("Option -a requires an aggregator argument.");
@@ -145,19 +156,45 @@ arguments parse_args(int argc, char** argv) {
 	return args;
 }
 
-void process_stream(istream& in, const arguments& args, aggr_arr::array& arr) {
+map<uint32_t, string> process_header(istream& in, const arguments& args) {
+	map<uint32_t, string> result;
+	string line;
+	getline(in, line);
+	vector<string> row = split(line, args.delim);
+	for(uint32_t i = 0; i < row.size(); ++i)
+		result[i] = row[i];
+	return result;
+}
+
+void process_stream(
+		istream& in,
+		const map<uint32_t, string>& column_map,
+		const arguments& args,
+		aggr_arr::array& arr) {
+
 	string line;
 	while(true) {
 		getline(in, line);
 		if(!in.good())
 			break;
 		vector<string> row = split(line, args.delim);
-		arr.consume_row(row);
+		arr.consume_row(row, args.expect_data_header, column_map);
 	}
 }
 
-void print_page(const unordered_map<aggr_arr::coord, unordered_map<aggr_arr::coord, map<string, double>>>& page,
-		ostream& out, const arguments& args) {
+template<class COLLECTION>
+vector<aggr_arr::coord> sort_coords(const COLLECTION& collection) {
+	vector<aggr_arr::coord> result(begin(collection), end(collection));
+	sort(begin(result), end(result), aggr_arr::coord_compare);
+	return result;
+}
+
+void print_page(const unordered_map<aggr_arr::coord,
+			unordered_map<aggr_arr::coord,
+				map<string, double>>>& page,
+		ostream& out,
+		const map<uint32_t, string>& column_map,
+		const arguments& args) {
 
 	// Gather all the dimensions.
 	// --------------------------
@@ -169,9 +206,8 @@ void print_page(const unordered_map<aggr_arr::coord, unordered_map<aggr_arr::coo
 		all_row_coords.insert(rcoord_columns.first);
 		for(const auto& ccoord_aggrs : rcoord_columns.second) {
 			all_column_coords.insert(ccoord_aggrs.first);
-			for(const auto& name_value : ccoord_aggrs.second) {
+			for(const auto& name_value : ccoord_aggrs.second)
 				all_aggr_names.insert(name_value.first);
-			}
 		}
 	}
 
@@ -183,16 +219,28 @@ void print_page(const unordered_map<aggr_arr::coord, unordered_map<aggr_arr::coo
 	if(args.extend_rows) {
 
 		// Print columns header.
-		for(const auto& c : all_column_coords)
-			out << c.str() << args.delim;
-		out << endl;
+		if(args.print_headers) {
+			for(const auto& c : sort_coords(all_column_coords)) {
+				if(args.expect_data_header)
+					out << c.to_string(column_map) << args.delim;
+				else
+					out << c.str() << args.delim;
+			}
+			out << endl;
+		}
 
 		// Print data.
-		for(const auto& r : all_row_coords) {
+		for(const auto& r : sort_coords(all_row_coords)) {
 			for(const auto& a : all_aggr_names) {
 
 				// Row header.
-				out << r.str() << "; " << a << args.delim;
+				if(args.print_headers) {
+					if(args.expect_data_header)
+						out << r.to_string(column_map) << "; "
+							<< a << args.delim;
+					else
+						out << r.str() << "; " << a << args.delim;
+				}
 				
 				// Row data.
 				for(const auto& c : all_column_coords)
@@ -205,30 +253,48 @@ void print_page(const unordered_map<aggr_arr::coord, unordered_map<aggr_arr::coo
 	} else {
 		
 		// Pront columns header.
-		for(const auto& c : all_column_coords)
-			for(const auto& a : all_aggr_names)
-				cout << c.str() << "; " << a << args.delim;
-		out << endl;
+		if(args.print_headers) {
+			for(const auto& c : sort_coords(all_column_coords)) {
+				for(const auto& a : all_aggr_names) {
+					if(args.expect_data_header)
+						cout << c.to_string(column_map) << "; "
+							<< a << args.delim;
+					else
+						cout << c.str() << "; " << a << args.delim;
+				}
+			}
+			out << endl;
+		}
 
 		// Print data.
-		for(const auto& r : all_row_coords) {
+		for(const auto& r : sort_coords(all_row_coords)) {
 
 			// Row header.
-			out << r.str() << args.delim;
+			if(args.print_headers) {
+				if(args.expect_data_header)
+					out << r.to_string(column_map) << args.delim;
+				else
+					out << r.str() << args.delim;
+			}
 
 			// Print data.
-			for(const auto& c : all_column_coords) {
+			for(const auto& c : sort_coords(all_column_coords)) {
 				for(const auto& a : all_aggr_names) {
 					out << page.at(r).at(c).at(a) << args.delim;
 				}
 			}
+
 			// Note that we do endl for each row here.
 			out << endl;
 		}
 	}
 }
 
-void print_results(const aggr_arr::array& arr, ostream& out, const arguments& args) {
+void print_results(
+		const aggr_arr::array& arr,
+		ostream& out,
+		const map<uint32_t, string>& column_map,
+		const arguments& args) {
 
 	// Handle the case with the pages and without them separately.
 	
@@ -255,7 +321,7 @@ void print_results(const aggr_arr::array& arr, ostream& out, const arguments& ar
 		// Print each page separately.
 		for(const auto& c_page : aggrs) {
 			out << "Page " << c_page.first.str() << endl;
-			print_page(c_page.second, out, args);
+			print_page(c_page.second, out, column_map, args);
 		}
 
 	// The case without pages.
@@ -279,7 +345,7 @@ void print_results(const aggr_arr::array& arr, ostream& out, const arguments& ar
 		});
 
 		// Only one page to be printed.
-		print_page(aggrs, out, args);
+		print_page(aggrs, out, column_map, args);
 	}
 }
 
@@ -300,11 +366,19 @@ int main(int argc, char** argv) {
 		// Initialize the array.
 		aggr_arr::array arr(args.dimensions, args.aggr_map);
 
-		// Fill the array with the data from the stdin.
-		process_stream(cin, args, arr);
+		// Process header if required.
+		// Note that if the mapping is not expected the variable will
+		// be empty, yet it is still passed to maintain the concise
+		// interface of the further processing procedures.
+		map<uint32_t, string> mapping;
+		if(args.expect_data_header)
+			mapping = process_header(cin, args);
 		
+		// Fill the array with the data from the stdin.
+		process_stream(cin, mapping, args, arr);
+
 		// Format and print the results.
-		print_results(arr, cout, args);
+		print_results(arr, cout, mapping, args);
 
 		return 0;
 	

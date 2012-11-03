@@ -14,6 +14,11 @@
 
 \tableofcontents
 
+\section*{License note}
+This is part of the stat-toolkit documentation.\\
+Copyright (C) 2012 Krzysztof Stachowiak\\
+See the file FDL for copying conditions.
+
 \chapter{Libraries}
 
 \section{Overview}
@@ -102,6 +107,63 @@ used separately.}.
 	Therefore an aggregator assigned to a given column will be collecting the values
 	from the input rows from the column. This way many aggregators may draw the input
 	values from the same input column.
+
+	The core class exposes two methods: \texttt{consume\_row} and
+	\texttt{for\_each\_aggr}:
+	
+	\begin{itemize}
+		\item \texttt{consume\_row(row : vector<string>, col\_mapped : bool,
+			column\_map : map<uint32\_t, string>) : void}\\
+			This method accepts a data row, which is its first argument.
+			Note that the dimensions and aggregators are tied to the input
+			data columns by their indices, however one may request the
+			result to be displayed with use of the columns' headers. If
+			such are provided (e.g. in the first row of the data stream),
+			they must be given to this method. In such case the 
+			\texttt{col\_mapped} flag must be set to \texttt{true}, and
+			the \texttt{column\_map} argument must provide an appropriate
+			mapping. If the column names are irrelevant, the \texttt{false}
+			flag must be passed, and then the last argument will be ignored.
+		\item \texttt{for\_each\_aggr(f : function<void(position, name, value)>) :
+				void}\\
+			This method will iterate over all the dimensions and all the
+			aggregators for each point in the array (note that it may be
+			given by multiple coordinates), and will call the provided
+			function with appropriate arguments for each of the aggregators.
+			The arguments are, respectively, the point's position, the
+			aggregator's name and the aggregator's result value. The position
+			object encapsulates a list of the coordinates, each of which
+			consists of the list of pairs: column index, value at the column.
+			This indicates that at the given coordinate all the values were
+			taken from the input rows which had given values at the given
+			columns. The following section gives more detail about the
+			definition of the positions and the coordinates.
+	\end{itemize}
+
+	\subsection{Helper classes: \texttt{position} and \texttt{coordinate}}
+	The aggregators array places the aggregators at the given coordinates, hence the
+	``array'' name. The positions are given by sets of coordinates, and each of the
+	coordinates defines the values that are expected at the given columns. Therefore
+	the classes are defined as follows:
+
+	\subsubsection{position}
+	The position class is completely defined by a list of coordinates and is created
+	based on such a list. Its public interface enables accessing a coordinate at a
+	given index and the retrieval of a string representation of the position.
+
+	\subsubsection{coord}
+	The coordinate object is defined by a map associating column indices with the
+	values that have been observed at the given index in the input data. Therefore
+	saying that the given input row is at the given coordinate (note that the position
+	may be given by multiple coordinates), means that for each of the map entry, the
+	given row had a given value at the column given by the key. Also in the resulting
+	table the aggregator at the given coordinate could have only been fed with values
+	from the input rows at the coordinate (by the definifion of the input row's
+	coordinate given above).
+
+	Based on the above it may be said that an aggregator at a given position was only
+	fed with the values from the input rows that satisfy the conditions of beeing at
+	all the coordinates given by the position.
 
 \chapter{Command Line Interface tools}
 

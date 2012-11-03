@@ -1,6 +1,8 @@
 CXX = g++ -O0 -g --std=gnu++0x
 LIBS = -lboost_math_tr1
 DISTDIR = dist
+TEX = pdflatex
+TEXLOG = latex.log
 
 .PHONY: all test cli doc
 
@@ -17,11 +19,13 @@ all: test cli doc
 
 test: aggr_test histogram_test groupby_test aggr_array_test
 
-cli: aggr histogram groupby pivot
+cli: aggr histogram groupby pivot pivot2
 	cp aggr $(DISTDIR)/
 	cp histogram $(DISTDIR)/
 	cp groupby $(DISTDIR)/
 	cp pivot $(DISTDIR)/
+	cp pivot2 $(DISTDIR)/
+	cp LICENSE $(DISTDIR)/
 
 doc: manual
 
@@ -41,13 +45,17 @@ clean_cli:
 	rm -f $(DISTDIR)/histogram
 	rm -f $(DISTDIR)/groupby
 	rm -f $(DISTDIR)/pivot
+	rm -f $(DISTDIR)/pivot2
+	rm -f $(DISTDIR)/LICENSE
 	rm -f aggr
 	rm -f histogram
 	rm -f groupby 
 	rm -f pivot
+	rm -f pivot2
 
 clean_doc:
 	rm -f $(DISTDIR)/manual.pdf
+	rm -f $(DISTDIR)/FDL
 	rm -f manual.aux
 	rm -f manual.toc
 	rm -f manual.log
@@ -68,6 +76,9 @@ groupby: groupby.cpp groupby.h aggr.h util.h
 
 pivot: pivot.cpp aggr_array.h util.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
+
+pivot2: pivot2.cpp groupby.h aggr.h
+	$(CXX) $(LIBS) -o pivot2 pivot2.cpp
 
 # ------
 # Tests.
@@ -94,7 +105,9 @@ aggr_array_test: aggr_array_test.cpp aggr_array.h util.h aggr.h
 # --------------
 
 manual: manual.tex
-	pdflatex manual.tex 
-	pdflatex manual.tex 
+	rm -f $(TEXLOG)
+	$(TEX) manual.tex > $(TEXLOG)
+	$(TEX) manual.tex > $(TEXLOG)
 	cp manual.pdf $(DISTDIR)/
+	cp FDL $(DISTDIR)/
 

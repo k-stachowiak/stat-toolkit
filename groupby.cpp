@@ -122,46 +122,29 @@ arguments parse_args(int argc, char** argv) {
 
 /// Fetches the data from the input stream and finally prints out
 /// the aggregations to the provided output stream.
-vector<group> process_stream(istream& in, const arguments& args) {
+groupby::groupper process_stream(istream& in, const arguments& args) {
 
-	vector<group> groups;
+	groupby::groupper groupper;
 	string line;
 
 	while(true) {
-		// Read new row line and parse it into the internal row format.
 		getline(in, line);
 		if(!in.good())
 			break;
 
 		vector<string> row = split(line, args.delim);
-
-		// Determine the group to which the new row belongs.
-		uint32_t index;
-		bool found = false;
-		for(uint32_t i = 0; i < groups.size(); ++i) {
-			if(groups[i].matches_row(row)) {
-				found = true;
-				index = i;
-				break;
-			}
-		}
-	
-		if(!found) {
-			index = groups.size();
-			groups.push_back(group::from_row(args.groupbys, args.aggr_strs, row));
-		}
-
-		// Register the row with the according group.
-		groups[index].consume_row(row);
+		groupper.consume_row(args.groupbys, args.aggr_strs, row);
 	}
 
-	return groups;
+	return groupper;
 }
 
 // The result printing phase.
 // ==========================
 
-void print_results(const vector<group>& groups, ostream& out, const arguments& args) {
+void print_results(groupby::groupper groupper,
+		ostream& out, 
+		const arguments& args) {
 
 	// Print the groupping report.
 	// ---------------------------
@@ -179,7 +162,7 @@ void print_results(const vector<group>& groups, ostream& out, const arguments& a
 	out << endl;
 
 	// Print the groups.
-	for(const group& g : groups) {
+	groupper.for_each_group([&out,&args](const groupby::group& g) {
 		for(const auto& d : g.get_definition())
 			out << d.second << args.delim;
 
@@ -190,7 +173,7 @@ void print_results(const vector<group>& groups, ostream& out, const arguments& a
 				out << args.delim;
 		}
 		out << endl;
-	}
+	});
 }
 
 int main(int argc, char** argv) {
@@ -205,10 +188,10 @@ int main(int argc, char** argv) {
 			throw string("Missing groupping or aggregation definitions.");
 
 		// Process the input stream.
-		auto groups = process_stream(cin, args);
+		auto groupper = process_stream(cin, args);
 
 		// Print the results.
-		print_results(groups, cout, args);
+		print_results(move(groupper), cout, args);
 
 		return 0;
 

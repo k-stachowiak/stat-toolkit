@@ -32,35 +32,28 @@ using std::floor;
 
 namespace hist {
 	
-/// @brief Builds a histogram of the tata it receives.
-///
-/// This class contains a caching mechanism so that the re is the raw buckets
-/// 	map that is created based on the input data and nothing else. Upon
-///	request a refined buckets map is created that also contains empty
-///	buckets if any are needed.
+// This class contains a caching mechanism so that the re is the raw buckets
+// map that is created based on the input data and nothing else. Upon
+// request a refined buckets map is created that also contains empty
+// buckets if any are needed.
 class histogram {
 
 	// Parameters.
 	// -----------
-	double _bucket_size;	///< The width of the histogram's interval.
+	double _bucket_size;
 
 	// State.
 	// ------
-	map<double, double> _raw_buckets;	///< Maps bucket-center -> count 
-	bool _cache_valid;			///< Flag indicating cache validity
-	map<double, double> _cached_buckets;	///< The cached output buckets.
+	map<double, double> _raw_buckets;
+	bool _cache_valid;
+	map<double, double> _cached_buckets;
 
 public:
-	/// @brief The constructor.
-	///
-	/// @param[in] bucket_size The requested size of a bucket.
 	histogram(double bucket_size)
 	: _bucket_size(bucket_size)
 	, _cache_valid(false) {}
 
-	/// @brief The finction for inserting a value into the histogram.
-	///
-	/// @param[in] value The value to be inserted.
+	// The finction for inserting a value into the histogram.
 	void put(double value) {
 		
 		// Establish the bucket
@@ -78,11 +71,9 @@ public:
 		_cache_valid = false;
 	}
 
-	/// @brief The function that returns the refined variant of the buckets'
-	/// 	map. It is cached so if anu value has been put in this histogram
-	///	the cache must be rebuilt upon a call to this function.
-	///
-	/// @returns A map representing the refined buckets.
+	// The function that returns the refined variant of the buckets'
+	// map. It is cached so if anu value has been put in this histogram
+	// the cache must be rebuilt upon a call to this function.
 	map<double, double> get_buckets() {
 
 		if(!_cache_valid) {

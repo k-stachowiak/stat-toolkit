@@ -30,6 +30,9 @@ using std::vector;
 #include <string>
 using std::string;
 
+#include <functional>
+using std::function;
+
 #include <boost/xpressive/xpressive.hpp>
 using boost::xpressive::sregex;
 using boost::xpressive::smatch;
@@ -42,32 +45,33 @@ using boost::xpressive::eos;
 
 #include "aggr.h"
 
-/// @brief A class to define the groups and store their aggregations.
-///
-/// This class defines a single group of the results.
-///	The groups are distinguished by the values of the groupping fields.
-///	The data rows from the considered input set may or may not match
-///	a given group based on the given groupping fields. Once a matching
-///	group is determined, values from the considered row should be put
-///	in the group's aggregators.
+namespace groupby {
+
+// This class defines a single group of the results.
+// The groups are distinguished by the values of the groupping fields.
+// The data rows from the considered input set may or may not match
+// a given group based on the given groupping fields. Once a matching
+// group is determined, values from the considered row should be put
+// in the group's aggregators.
 class group {
 
-	/// The field indices and the values that discriminate this
-	/// group from the others.
+	// The field indices and the values that discriminate this
+	// group from the others.
 	vector<pair<uint32_t, string>> _definition;
 
-	/// The list of the pairs of the indices of the fields to be
-	/// aggregated and their respective aggregators.
+	// The list of the pairs of the indices of the fields to be
+	// aggregated and their respective aggregators.
 	vector<pair<uint32_t, aggr::ptr>> _aggregators;
 
-	/// @brief A private constructor to enforce usage of the factory function.
-	group() {}
 public:
-	/// @brief Checks whether a given row belongs to this group.
-	///
-	/// @param[in] row The data row to be checked.
-	///
-	/// @returns True if the row matches this group, false otherwise.
+	// Only allow constructing from the prepared members.
+	group(vector<pair<uint32_t, string>> definition,
+		vector<pair<uint32_t, aggr::ptr>> aggrs)
+	: _definition(definition)
+	, _aggregators(move(aggrs))
+	{}
+
+	// Checks whether a given row belongs to this group.
 	bool matches_row(const vector<string>& row) {
 		for(const auto& def : _definition)
 			if(row.at(def.first) != def.second)
@@ -76,21 +80,18 @@ public:
 		return true;
 	}
 
-	/// @brief Getter for the definition.
+	// Getter for the definition.
 	const vector<pair<uint32_t, string>>& get_definition() const {
 		return _definition;
 	}
 
-	/// @brief Getter for the aggregators.
+	// Getter for the aggregators.
 	const vector<pair<uint32_t, aggr::ptr>>& get_aggregators() const {
 		return _aggregators;
 	}
 
-	/// @brief Consumes the row, i.e. feeds all the aggregators with
-	/// 	the values from the respective fields.
-	///
-	/// @param[in] row The row, the values from are to be put in this
-	///	group's aggregators.
+	// Consumes the row, i.e. feeds all the aggregators with
+	// the values from the respective fields.
 	void consume_row(const vector<string>& row) {
 		for(auto& aggr : _aggregators) {
 			double value;
@@ -102,15 +103,17 @@ public:
 			aggr.second->put(value);
 		}
 	}
+};
 
-	/// @brief Parses the aggregator string extracting the index of the aggregated field
-	/// 	and building an appropriate aggregator object.
-	///
-	/// @param[in] aggr_str The string to be parsed.
-	/// @param[out] field The result field index.
-	/// @param[out] aggr The aggregator constructed based on the according
-	///	part of the input string.
-	static void parse_aggr_str(string aggr_str, uint32_t& field, aggr::ptr& aggr) {
+class groupper {
+
+	vector<group> _groups;
+
+	// Parses the aggregator construction string.
+	static void parse_aggr_str(
+			const string& aggr_str,
+			uint32_t& field,
+			aggr::ptr& aggr) {
 
 		smatch match;
 
@@ -132,37 +135,75 @@ public:
 		aggr = move(a);
 	}
 
-	/// @brief Builds a group that matches a given row.
-	///
-	/// This function gets called whenever an input data row arrives that
-	///	doesn't match any of the previously found groups. Therefore
-	///	a new group must be created that the new data row will match.
-	///	This function creates such a group that will match the provided
-	///	input row.
-	///
-	/// @param[in] groupbys The indices of the groupping columns.
-	/// @param[in] aggr_strs The strings for constructing the aggregators.
-	/// @param[in] row The template row for creating a new group.
-	static group from_row(
+	// Creates a group based on a definitions and a given row.
+	// The result is a group that fulfils the conditions of matching the
+	// provided row assuming the input definitions.
+	static group group_from_row(
 			const vector<uint32_t>& groupbys,
 			const vector<string>& aggr_strs,
 			const vector<string>& row) {
 
-		group result;
-
+		// Assign labels to the definitions.
+		vector<pair<uint32_t, string>> definition;
 		for(uint32_t gb : groupbys)
-			result._definition.emplace_back(gb, row[gb]);
+			definition.emplace_back(gb, row[gb]);
 
+		// Initialize a fresh set of aggregators.
+		vector<pair<uint32_t, aggr::ptr>> aggrs;
 		for(const auto& as : aggr_strs) {
 			uint32_t field;
 			aggr::ptr aggr;
 			parse_aggr_str(as, field, aggr);
-			result._aggregators.emplace_back(field, move(aggr));
+			aggrs.emplace_back(field, move(aggr));
 		}
 
-		return result;
+		return { definition, move(aggrs) };
+	}
+
+public:
+	groupper() = default;			// Default constructible.
+	groupper(groupper&&) = default;		// Movable.
+	groupper(const groupper&) = delete;	// Noncopyable.
+
+	// Accepts a row and assigns it to the first matching group.
+	// If no matching group exists a new group is created based on the row
+	// and the according definitions and the row is stored in the newly
+	// created group.
+	void consume_row(const vector<uint32_t>& groupbys,
+			const vector<string>& aggr_strs,
+			const vector<string>& row) {
+
+		// Determine the index of the group to which the given data row
+		// belongs.
+		uint32_t index;
+
+		// Try among existing groups.
+		bool found = false;
+		for(uint32_t i = 0; i < _groups.size(); ++i)
+			if(_groups[i].matches_row(row)) {
+				found = true;
+				index = i;
+				break;
+			}
+
+		// If no matching group, create a new one.
+		if(!found) {
+			index = _groups.size();
+			_groups.push_back(group_from_row(
+				groupbys, aggr_strs, row));
+		}
+
+		// Add the row at the determined index.
+		_groups[index].consume_row(row);
+	}
+
+	// Allows iteration over all the groups.
+	void for_each_group(function<void(const group&)> f) const {
+		for(const auto& g : _groups)
+			f(g);
 	}
 };
 
+}
 
 #endif

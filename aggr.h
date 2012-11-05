@@ -42,38 +42,29 @@ using boost::xpressive::_s;
 
 namespace aggr {
 
-	/// @brief The aggregator's base class.
-	/// 
-	/// The class defines an interface for the objects that aggregate streams
-	/// of numbers. The way to use an aggregator is to first feed it with
-	/// a serie of numbers and then query it for the according aggregation.
-	/// Aggregators are supposed to be queried multiple times after any number
-	/// of the insertions of the input numbers.
+	// The class defines an interface for the objects that aggregate streams
+	// of numbers. The way to use an aggregator is to first feed it with
+	// a serie of numbers and then query it for the according aggregation.
+	// Aggregators are supposed to be queried multiple times after any number
+	// of the insertions of the input numbers.
 	class aggregator {
 	public:
 		virtual ~aggregator() {}
 
-		/// Add a value to the distribution.
-		///
-		/// @param[in] value The value to be inserted into the aggregator.
+		// Add a value to the distribution.
 		virtual void put(double value) = 0;
 
-		/// Gets the aggregated value.
-		///
-		/// @returns The result of aggregating all the values that have been put into the
-		///	aggregator so far.
+		// Gets the aggregated value.
 		virtual double get() const = 0;
 	};
 
 	// Helper typedef.
 	typedef unique_ptr<aggregator> ptr;
 
-	/// @brief Counter aggregator.
-	///
-	/// Every time this aggregator is queried, it returns the number of the inputs that
-	/// 	were performed so far.
+	// Every time this aggregator is queried, it returns the number of the inputs that
+	//  were performed so far.
 	class count : public aggregator {
-		int _count;	///< The count of the previous inserts.
+		int _count;
 	public:
 		count() : _count(0) {}
 	
@@ -83,11 +74,9 @@ namespace aggr {
 		double get() const { return double(_count); }
 	};
 
-	/// @brief Sum aggregator.
-	/// 
-	/// Sums the numbers that have been put into it so far.
+	// Sums the numbers that have been put into it so far.
 	class sum : public aggregator {
-		double _sum; ///< Sum of the values that have been inserted so far.
+		double _sum;
 	public:
 		sum() : _sum(0) {}
 	
@@ -97,13 +86,11 @@ namespace aggr {
 		double get() const { return _sum; }
 	};
 
-	/// @brief Mean aggregator.
-	///
-	/// Computs the mean of the values that have been put into it.
-	///	Note that it depends on two other aggregators : sum and count.
+	// Computs the mean of the values that have been put into it.
+	// Note that it depends on two other aggregators : sum and count.
 	class mean : public aggregator {
-		sum _sum;	///< The inner sum aggregator.
-		count _count;	///< The inner count aggregator.
+		sum _sum;
+		count _count;
 	public:
 	
 		// Aggregator interface.
@@ -118,16 +105,14 @@ namespace aggr {
 		}
 	};
 
-	/// @brief The standard deviation aggregator.
-	///
-	/// Computes the standard deviation of the population
-	///	based on the input data interpreted as the sample.
-	///	The implementation is based on the algorithm for the
-	///	running standard deviation from the Wikipedia.
+	// Computes the standard deviation of the population
+	// based on the input data interpreted as the sample.
+	// The implementation is based on the algorithm for the
+	// running standard deviation from the Wikipedia.
 	class stdev : public aggregator {
-		double _a;	///< Algorithm speciffic factor.
-		double _q;	///< Algorithm speciffic factor.
-		double _k;	///< The number of the previous inserts.
+		double _a;
+		double _q;
+		double _k;
 	public:
 		stdev() : _a(0), _q(0), _k(0) {}
 	
@@ -146,20 +131,14 @@ namespace aggr {
 		}
 	};
 
-	/// @brief Normal distribution based confidence interval aggregator.
-	///
-	/// Computes the gaussian confidence interval of the values that are
-	///	put into it. Note that it depends on the boost statistical
-	///	helpers.
+	// Computes the gaussian confidence interval of the values that are
+	// put into it. Note that it depends on the boost statistical helpers.
 	class ci_gauss : public aggregator {
-		double _alpha;	///< The confidence level.
-		count _count;	///< The inner count aggregator.
-		mean _mean;	///< The inner mean aggregator.
-		stdev _stdev;	///< The inner stdev aggregator.
+		double _alpha;
+		count _count;
+		mean _mean;
+		stdev _stdev;
 	public:
-		/// @brief The constructor.
-		///
-		/// @param[in] alpha The confidence level.
 		ci_gauss(double alpha) : _alpha(alpha) {}
 
 		// Aggregator interface.
@@ -180,18 +159,9 @@ namespace aggr {
 		}
 	};
 
-	/// @brief The factory function building aggregators.
-	///
-	/// The function takes a so called constructor string as an argument,
-	/// and constructs an according aggregator implementation.
-	///
-	/// @param[in] str The aggregatir constructor string.
-	///
-	/// @returns A unique pointer to the created aggregator object.
-	///
-	/// @exception std::string The input string doesn't allow constructing
-	///	any available aggregator.
-	ptr create_from_string(string str) {
+	// The function takes a so called constructor string as an argument,
+	// and constructs an according aggregator implementation.
+	ptr create_from_string(const string& str) {
 
 		// Simple, no argument cases.
 		// --------------------------

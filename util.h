@@ -33,8 +33,8 @@ using std::vector;
 #include <string>
 using std::string;
 
-/// Splits a string by a given delimiter.
-vector<string> split(string str, char delim) {
+// Splits a string by a given delimiter.
+vector<string> split(const string& str, char delim) {
 
 	vector<string> result;
 	string delims = string() + delim;
@@ -50,8 +50,8 @@ vector<string> split(string str, char delim) {
 	return result;
 }
 
-/// Finds an index of a value in a givem collection.
-/// Note that there is no bounds checking at the moment.
+// Finds an index of a value in a givem collection.
+// Note that there is no bounds checking at the moment.
 template<class COLLECTION, class VALUE_TYPE>
 uint32_t index_of(const COLLECTION& col, const VALUE_TYPE& val) {
 	return find(begin(col), end(col), val) - begin(col);

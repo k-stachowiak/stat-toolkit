@@ -60,7 +60,7 @@ struct arguments {
 	vector<string> aggr_strs;
 };
 
-vector<uint32_t> parse_dim_arg(const string& arg) {
+vector<uint32_t> parse_dim_arg(string const& arg) {
 
 	vector<uint32_t> result;
 	
@@ -92,6 +92,7 @@ arguments parse_args(int argc, char** argv) {
 	arguments args;
 	args.delim = '\t';
 	args.print_headers = false;
+	args.expect_data_header = false;
 
 	int c;
 	while((c = getopt(argc, argv, "a:d:D:RhH")) != -1) {
@@ -148,7 +149,7 @@ arguments parse_args(int argc, char** argv) {
 }
 
 // Reading additional data from the input header.
-map<uint32_t, string> process_header(istream& in, const arguments& args) {
+map<uint32_t, string> process_header(istream& in, arguments const& args) {
 	map<uint32_t, string> result;
 	string line;
 	getline(in, line);
@@ -163,11 +164,11 @@ map<uint32_t, string> process_header(istream& in, const arguments& args) {
 
 groupby::groupper perform_groupping(
 		istream& in, 
-		const arguments& args) {
+		arguments const& args) {
 
 	// Flatten the dimension definitions.
 	vector<uint32_t> groupbys;
-	for(const auto& v : args.dimensions)
+	for(auto const& v : args.dimensions)
 		for(auto dim : v)
 			if(find(begin(groupbys), end(groupbys), dim) == end(groupbys))
 				groupbys.push_back(dim);
@@ -191,8 +192,118 @@ groupby::groupper perform_groupping(
 // The arrangement and printing phase.
 // -----------------------------------
 
-void print_table(groupby::groupper const& g, ostream& out, const arguments& args) {
+vector<groupby::group_result> sort_groups(groupby::groupper const& g, arguments const& args) {
 
+	vector<groupby::group_result> groups = g.copy_result();
+
+	// Sort the group by the dimensions.
+	sort(begin(groups), end(groups),
+			[&args](groupby::group_result const& lhs,
+				groupby::group_result const& rhs) {
+
+		for(auto const& dim : args.dimensions) {
+
+			// Compare the values from the columns determined by the
+			// dimension; return at the forst that is not equal for the
+			// both groups.
+			for(auto const& i : dim) {
+				const string& l = lhs.get_def_at(i);	
+				const string& r = rhs.get_def_at(i);	
+				if(l != r)
+					return l < r;
+			}
+		}
+
+		// Getting here means that the group definitions are equal, which
+		// is by no means legal.
+		throw string("Attempted comparing groups defined equally.");
+	});
+
+	return groups;
+}
+
+using dim_t = vector<pair<uint32_t, string>>;
+
+inline
+dim_t get_groups_dim(const groupby::group_result& grp, const vector<uint32_t> dim) {
+	vector<pair<uint32_t, string>> result;
+	for(uint32_t col : dim)
+		result.emplace_back(col, grp.get_def_at(col));
+	return result;
+}
+
+inline
+string dim_caption(dim_t row) {
+	stringstream ss;
+	for(auto const& pr : row)
+		ss << pr.second << " ";
+	return ss.str();
+}
+
+void print_page(vector<groupby::group_result> const& groups,
+		uint32_t dim_offset,
+		ostream& out,
+		arguments const& args) {
+
+	auto it = begin(groups);
+	if(it == end(groups))
+		return;
+
+	dim_t current_row = get_groups_dim(*it, args.dimensions[dim_offset]);
+	out << dim_caption(current_row) << args.delim;
+	do {
+		// Check if we've entered another row.
+		if(current_row != get_groups_dim(*it, args.dimensions[dim_offset])) {
+			current_row = get_groups_dim(*it, args.dimensions[dim_offset]);
+			out << endl << dim_caption(current_row) << args.delim;
+		}
+
+		// Print the aggregated values.
+		for(auto const& pr : it->aggregators)
+			out << pr.second << args.delim;
+
+		// Advance the group iterator.
+		++it;
+
+	} while(it != end(groups));
+
+	out << endl;
+}
+
+void print_table(groupby::groupper const& g, ostream& out, arguments const& args) {
+
+	auto sorted_groups = sort_groups(g, args);
+
+	if(args.dimensions.size() == 2) {
+		print_page(sorted_groups, 0, out, args);
+
+	} else if(args.dimensions.size() == 3) {
+
+		auto it = begin(sorted_groups);
+		if(it == end(sorted_groups))
+			return;
+
+		dim_t current_page = get_groups_dim(*it, args.dimensions[0]);
+		out << "Page: " << dim_caption(current_page) << endl;
+		vector<groupby::group_result> page_groups;
+		do {
+			// Check if we've entered another page.
+			if(current_page != get_groups_dim(*it, args.dimensions[0])) {
+				current_page = get_groups_dim(*it, args.dimensions[0]);
+				out << "Page: " << dim_caption(current_page) << endl;
+				print_page(page_groups, 1, out, args);
+				page_groups.clear();
+			}
+
+			// Add another group for this page.
+			page_groups.push_back(*it);
+			++it;
+
+		} while(it != end(sorted_groups));
+
+	} else {
+		throw string("Only 2 or 3 dimensions supported.");
+	}
 }
 
 int main(int argc, char** argv) {

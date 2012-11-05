@@ -105,6 +105,19 @@ public:
 	}
 };
 
+struct group_result {
+	vector<pair<uint32_t, string>> definition;
+	vector<pair<uint32_t, double>> aggregators;
+
+	// Gets a value defining the group at a column given by the ket index.
+	const string& get_def_at(uint32_t key) const {
+		for(const auto& pr : definition)
+			if(pr.first == key)
+				return pr.second;
+		throw string("Requested a definition for a non-existent key.");
+	}
+};
+
 class groupper {
 
 	vector<group> _groups;
@@ -161,10 +174,6 @@ class groupper {
 	}
 
 public:
-	groupper() = default;			// Default constructible.
-	groupper(groupper&&) = default;		// Movable.
-	groupper(const groupper&) = delete;	// Noncopyable.
-
 	// Accepts a row and assigns it to the first matching group.
 	// If no matching group exists a new group is created based on the row
 	// and the according definitions and the row is stored in the newly
@@ -201,6 +210,20 @@ public:
 	void for_each_group(function<void(const group&)> f) const {
 		for(const auto& g : _groups)
 			f(g);
+	}
+
+	vector<group_result> copy_result() const {
+		vector<group_result> result;
+		for(auto const& g : _groups) {
+			vector<pair<uint32_t, string>> definition;
+			vector<pair<uint32_t, double>> aggregators;
+			for(auto const& d : g.get_definition())
+				definition.push_back(d);
+			for(auto const& a : g.get_aggregators())
+				aggregators.emplace_back(a.first, a.second->get());
+			result.push_back({ definition, aggregators });
+		}
+		return result;
 	}
 };
 

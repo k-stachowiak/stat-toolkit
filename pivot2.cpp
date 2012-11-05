@@ -297,6 +297,7 @@ void print_table(groupby::groupper const& g, ostream& out, arguments const& args
 
 			// Add another group for this page.
 			page_groups.push_back(*it);
+
 			++it;
 
 		} while(it != end(sorted_groups));

@@ -192,9 +192,12 @@ groupby::groupper perform_groupping(
 // The arrangement and printing phase.
 // -----------------------------------
 
-vector<groupby::group_result> sort_groups(groupby::groupper const& g, arguments const& args) {
+vector<groupby::group_result> sort_group_results(
+		vector<groupby::group_result> const& results,
+		arguments const& args) {
 
-	vector<groupby::group_result> groups = g.copy_result();
+	// Copy the input collection.
+	vector<groupby::group_result> groups(begin(results), end(results));
 
 	// Sort the group by the dimensions.
 	sort(begin(groups), end(groups),
@@ -222,10 +225,10 @@ vector<groupby::group_result> sort_groups(groupby::groupper const& g, arguments 
 	return groups;
 }
 
-using dim_t = vector<pair<uint32_t, string>>;
+typedef vector<pair<uint32_t, string>> dim_t;
 
 inline
-dim_t get_groups_dim(const groupby::group_result& grp, const vector<uint32_t> dim) {
+dim_t get_group_dim(groupby::group_result const& grp, vector<uint32_t> const& dim) {
 	vector<pair<uint32_t, string>> result;
 	for(uint32_t col : dim)
 		result.emplace_back(col, grp.get_def_at(col));
@@ -233,74 +236,111 @@ dim_t get_groups_dim(const groupby::group_result& grp, const vector<uint32_t> di
 }
 
 inline
-string dim_caption(dim_t row) {
+string dim_caption(dim_t d) {
 	stringstream ss;
-	for(auto const& pr : row)
+	for(auto const& pr : d)
 		ss << pr.second << " ";
 	return ss.str();
 }
 
-void print_page(vector<groupby::group_result> const& groups,
+template<class It>
+void print_row(It grp_begin, It grp_end,
+		vector<dim_t> const& sorted_columns,
+		ostream& out,
+		arguments const& args) {
+
+	throw string("Unimplemented method.");
+}
+
+template<class It>
+void print_page(It grp_begin, It grp_end,
 		uint32_t dim_offset,
 		ostream& out,
 		arguments const& args) {
 
-	auto it = begin(groups);
-	if(it == end(groups))
-		return;
+	// Determine the page's columns.
+	// -----------------------------
+	set<dim_t> col_set;
+	for(auto grp_it = grp_begin; grp_it != grp_end; ++grp_it)
+		col_set.insert(get_group_dim(*grp_it, args.dimensions[dim_offset + 1]));
 
-	dim_t current_row = get_groups_dim(*it, args.dimensions[dim_offset]);
-	out << dim_caption(current_row) << args.delim;
+	vector<dim_t> sorted_columns(begin(col_set), end(col_set));
+	sort(begin(sorted_columns), end(sorted_columns),
+		[&args](dim_t const& lhs, dim_t const& rhs) {
+			uint32_t num_defs = lhs.size();	
+			if(num_defs != rhs.size())
+				throw string("Attempted comparing dimensionf of differend sizes");
+			for(uint32_t i = 0; i < num_defs; ++i) {
+				if(lhs.at(i).first != rhs.at(i).first)
+					return lhs.at(i).first < rhs.at(i).first
+				if(lhs.at(i).second != rhs.at(i).second)
+					return lhs.at(i).second < rhs.at(i).second
+			}
+
+			return false;
+		});
+
+	// Print all rows.
+	// ---------------
+	auto row_begin = grp_begin;
+	auto it = grp_begin;
+
+	dim_t current_row = get_group_dim(*it, args.dimensions[dim_offset]);
 	do {
-		// Check if we've entered another row.
-		if(current_row != get_groups_dim(*it, args.dimensions[dim_offset])) {
-			current_row = get_groups_dim(*it, args.dimensions[dim_offset]);
-			out << endl << dim_caption(current_row) << args.delim;
+		dim_t group_row = get_group_dim(*it, args.dimensions[dim_offset]);
+		if(group_row != current_row) {
+			out << dim_caption(current_row);
+			print_row(row_begin, it, sorted_columns, out, args);
+
+			row_begin = it;
+			current_row = get_group_dim(*it, args.dimensions[dim_offset]);
 		}
 
-		// Print the aggregated values.
-		for(auto const& pr : it->aggregators)
-			out << pr.second << args.delim;
+	} while((++it) != grp_end);
 
-		// Advance the group iterator.
-		++it;
-
-	} while(it != end(groups));
-
-	out << endl;
+	out << dim_caption(current_row);
+	print_row(row_begin, it, sorted_columns, out, args);
 }
 
 void print_table(groupby::groupper const& g, ostream& out, arguments const& args) {
 
-	auto sorted_groups = sort_groups(g, args);
+	auto sorted_groups = sort_group_results(g.copy_result(), args);
 
 	if(args.dimensions.size() == 2) {
-		print_page(sorted_groups, 0, out, args);
+
+		// Print just one page.
+		// --------------------
+		print_page(begin(sorted_groups), end(sorted_groups), 0, out, args);
 
 	} else if(args.dimensions.size() == 3) {
 
-		auto it = begin(sorted_groups);
-		if(it == end(sorted_groups))
-			return;
+		// Print all the pages.
+		// --------------------
 
-		dim_t current_page = get_groups_dim(*it, args.dimensions[0]);
-		out << "Page: " << dim_caption(current_page) << endl;
-		vector<groupby::group_result> page_groups;
+		auto page_begin = begin(sorted_groups);
+		auto it = begin(sorted_groups);
+
+		dim_t current_page = get_group_dim(*it, args.dimensions[0]);
 		do {
+			dim_t group_page = get_group_dim(*it, args.dimensions[0]);
+
 			// Check if we've entered another page.
-			if(current_page != get_groups_dim(*it, args.dimensions[0])) {
-				current_page = get_groups_dim(*it, args.dimensions[0]);
+			if(group_page != current_page) {
+
+				// Print current page.
 				out << "Page: " << dim_caption(current_page) << endl;
-				print_page(page_groups, 1, out, args);
-				page_groups.clear();
+				print_page(page_begin, it, 1, out, args);
+
+				// Begin another page.
+				page_begin = it;
+				current_page = get_group_dim(*it, args.dimensions[0]);
 			}
 
-			// Add another group for this page.
-			page_groups.push_back(*it);
+		} while((++it) != end(sorted_groups));
 
-			++it;
-
-		} while(it != end(sorted_groups));
+		// Finalize the remaining page.
+		out << "Page: " << dim_caption(current_page) << endl;
+		print_page(page_begin, it, 1, out, args);
 
 	} else {
 		throw string("Only 2 or 3 dimensions supported.");

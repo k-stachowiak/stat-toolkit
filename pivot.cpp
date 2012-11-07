@@ -177,14 +177,14 @@ groupby::groupper perform_groupping(
 				throw string("Column index repeated in the dimension "
 						"definition.");
 
-	groupby::groupper g;
+	groupby::groupper g(groupbys, args.aggr_strs);
 	string line;
 	while(true) {
 		getline(in, line);
 		if(!in.good())
 			break;
 		vector<string> row = split(line, args.delim);
-		g.consume_row(groupbys, args.aggr_strs, row);
+		g.consume_row(row);
 	}
 
 	return g;

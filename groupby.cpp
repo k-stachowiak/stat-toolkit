@@ -124,7 +124,7 @@ arguments parse_args(int argc, char** argv) {
 /// the aggregations to the provided output stream.
 groupby::groupper process_stream(istream& in, const arguments& args) {
 
-	groupby::groupper groupper;
+	groupby::groupper groupper(args.groupbys, args.aggr_strs);
 	string line;
 
 	while(true) {
@@ -133,7 +133,7 @@ groupby::groupper process_stream(istream& in, const arguments& args) {
 			break;
 
 		vector<string> row = split(line, args.delim);
-		groupper.consume_row(args.groupbys, args.aggr_strs, row);
+		groupper.consume_row(row);
 	}
 
 	return groupper;

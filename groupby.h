@@ -72,8 +72,8 @@ public:
 	{}
 
 	// Checks whether a given row belongs to this group.
-	bool matches_row(const vector<string>& row) {
-		for(const auto& def : _definition)
+	bool matches_row(vector<string> const& row) {
+		for(auto const& def : _definition)
 			if(row.at(def.first) != def.second)
 				return false;
 		
@@ -81,18 +81,18 @@ public:
 	}
 
 	// Getter for the definition.
-	const vector<pair<uint32_t, string>>& get_definition() const {
+	vector<pair<uint32_t, string>> const& get_definition() const {
 		return _definition;
 	}
 
 	// Getter for the aggregators.
-	const vector<pair<uint32_t, aggr::ptr>>& get_aggregators() const {
+	vector<pair<uint32_t, aggr::ptr>> const& get_aggregators() const {
 		return _aggregators;
 	}
 
 	// Consumes the row, i.e. feeds all the aggregators with
 	// the values from the respective fields.
-	void consume_row(const vector<string>& row) {
+	void consume_row(vector<string> const& row) {
 		for(auto& aggr : _aggregators) {
 			double value;
 			stringstream ss;
@@ -115,8 +115,8 @@ struct group_result {
 	vector<pair<uint32_t, double>> aggregators;
 
 	// Gets a value defining the group at a column given by the ket index.
-	const string& get_def_at(uint32_t key) const {
-		for(const auto& pr : definition)
+	string const& get_def_at(uint32_t key) const {
+		for(auto const& pr : definition)
 			if(pr.first == key)
 				return pr.second;
 		throw string("Requested a definition for a non-existent key.");
@@ -125,11 +125,18 @@ struct group_result {
 
 class groupper {
 
+	// Configuration.
+	// --------------
+	vector<uint32_t> _groupbys;
+	vector<string> _aggr_strs;
+
+	// State.
+	// ------
 	vector<group> _groups;
 
 	// Parses the aggregator construction string.
 	static void parse_aggr_str(
-			const string& aggr_str,
+			string const& aggr_str,
 			uint32_t& field,
 			aggr::ptr& aggr) {
 
@@ -157,9 +164,9 @@ class groupper {
 	// The result is a group that fulfils the conditions of matching the
 	// provided row assuming the input definitions.
 	static group group_from_row(
-			const vector<uint32_t>& groupbys,
-			const vector<string>& aggr_strs,
-			const vector<string>& row) {
+			vector<uint32_t> groupbys,
+			vector<string> aggr_strs,
+			vector<string> const& row) {
 
 		// Assign labels to the definitions.
 		vector<pair<uint32_t, string>> definition;
@@ -168,7 +175,7 @@ class groupper {
 
 		// Initialize a fresh set of aggregators.
 		vector<pair<uint32_t, aggr::ptr>> aggrs;
-		for(const auto& as : aggr_strs) {
+		for(auto const& as : aggr_strs) {
 			uint32_t field;
 			aggr::ptr aggr;
 			parse_aggr_str(as, field, aggr);
@@ -179,13 +186,16 @@ class groupper {
 	}
 
 public:
+	groupper(vector<uint32_t> groupbys, vector<string> aggr_strs)
+	: _groupbys(groupbys)
+	, _aggr_strs(aggr_strs)
+	{}
+
 	// Accepts a row and assigns it to the first matching group.
 	// If no matching group exists a new group is created based on the row
 	// and the according definitions and the row is stored in the newly
 	// created group.
-	void consume_row(const vector<uint32_t>& groupbys,
-			const vector<string>& aggr_strs,
-			const vector<string>& row) {
+	void consume_row(vector<string> const& row) {
 
 		// Determine the index of the group to which the given data row
 		// belongs.
@@ -204,7 +214,7 @@ public:
 		if(!found) {
 			index = _groups.size();
 			_groups.push_back(group_from_row(
-				groupbys, aggr_strs, row));
+				_groupbys, _aggr_strs, row));
 		}
 
 		// Add the row at the determined index.
@@ -212,8 +222,8 @@ public:
 	}
 
 	// Allows iteration over all the groups.
-	void for_each_group(function<void(const group&)> f) const {
-		for(const auto& g : _groups)
+	void for_each_group(function<void(group const&)> f) const {
+		for(auto const& g : _groups)
 			f(g);
 	}
 

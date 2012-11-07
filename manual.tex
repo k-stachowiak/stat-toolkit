@@ -21,6 +21,11 @@ See the file FDL for copying conditions.
 
 \chapter{Libraries}
 
+% Things that should be found in a library section:
+% - Summary
+%   - The namespaces and the classes
+%   - The interface of the relevant classes
+
 \section{Overview}
 The libraries, which in this suite take a form of autonomous and atomic C++
 header files are the foundation of the entire system. In many cases they are
@@ -89,6 +94,85 @@ used separately.}.
 	only one of the aggregators requires an argument, which is the \texttt{ci\_gauss}
 	expecting a single argument - the confidence level.
 
+\section{\texttt{groupby.h}}
+
+	\subsection{Summary}
+	The \texttt{groupby.h} library provides functionality silimar to the SQL
+	groupping. In order to perform the aggregation of a set of data, two
+	things need to be defined. The set of the group defining columns
+	(the \texttt{group by} part in the SQL query), and the set of the aggregators
+	(the \texttt{SUM(?)}, \texttt{MEAN(?)}, etc. SQL functions). The values from
+	the input rows are groupped by the criteria given by the first set and then
+	within each group the values are aggregated with te functions provided by
+	the aggregators.
+
+	All the classes are placed in the \texttt{groupby} namespace. There are three
+	of them:
+
+	\begin{itemize}
+		\item \texttt{group} -- Internal representation of a data group.
+			This one should not be used outside of the library.
+		\item \texttt{group\_result} -- This class is meant as a mean of
+			safely transporting the groupping result. Instead of
+			polymorphic aggregator pointers it already stores the
+			aggregated values and is therefore easily copyable and
+			movable.
+		\item \texttt{groupper} -- The main facility of the library. It
+			is defined by the aforementioned concepts of groupping
+			columns and aggregators and works by consuming plain data
+			rows and exposing the groupping results upon request.
+	\end{itemize}
+
+	Two of the classes will be described here as the ones meant to be used by
+	the library clients.
+
+	\subsection{groupper}
+	The main functional class being constructed with two arguments:
+
+	\begin{itemize}
+		\item \texttt{groupbys : vector<uint32\_t>} -- The list of the
+			indices defining the groupping columns.
+		\item \texttt{aggr\_strs : vector<string>} -- The strings for
+			the construction of the aggregators. They are given by
+			the pairs of the form: \textit{column-index, constructor},
+			where the \textit{column-index} indicates the column from
+			which the values are to be aggregated and the
+			\textit{constructor} is the aggregator constructor string.
+			For the details on the aggregator construction from strings
+			see the \texttt{aggr.h} library section of the manual.
+	\end{itemize}
+
+	The runtime interface of the \texttt{groupper} class consists the following
+	functions:
+
+	\begin{itemize}
+		\item \texttt{consume\_row(row : vector<string>) : void}\\
+			Accepts a row of data and asigns the according values to
+			their groups.
+		\item \texttt{for\_each\_group(f : function<void(group)>) : void}\\
+			Visits all the groups that have been determined so far
+			calling the provided function for each of them.
+		\item \texttt{copy\_result() : vector<group\_result>}\\
+			Performs all the aggregations of the values stored for the
+			internal list of groups and returns a static copy of
+			the groupping result that only contains the aggregated
+			values.
+	\end{itemize}
+
+	\subsection{group\_result}
+	This class (a struct actually) serves the purpose of transporting the
+	information about the groupping result in a safe, copyable and movable
+	way. It consists of two lists:
+
+	\begin{itemize}
+		\item \texttt{definition : vector<pair<uint32\_t, string>>}\\
+			The mapping of the column indices and the values that
+			can be found in the columns for the given group.
+		\item \texttt{aggregators : vector<pair<uint32\_t, double>>}\\
+			The mapping of the column indices and the aggregations
+			of the values coming from the columns.
+	\end{itemize}
+
 \section{\texttt{histogram.h}}
 
 	\subsection{Summary}
@@ -117,6 +201,13 @@ used separately.}.
 	and rebuilt when the \texttt{get\_buckets} function is called subsequently.
 
 \chapter{Command Line Interface tools}
+
+% Things that should be found in a cli tool section:
+% - List of all options with short descriptions
+% - Summary
+%   - The explanation of all the concepts (refer to the underlying libraries
+%		where possible).
+% - Examples
 
 \section{\texttt{histogram}}
 
@@ -285,7 +376,7 @@ used separately.}.
 	selecting 2 or 3 dimensions for the result space, selecting a set of the
 	aggregators and few additional minor settings.
 
-	\subsubsection{Dinemsions}
+	\subsubsection{Dimensions}
 	2 or 3 dimensions can be defined. The respective cases these are: page, row
 	and column, or just row and column. Their interpretation is that all the values
 	at a given coordinate, say in the given page, come from the input rows that fultil

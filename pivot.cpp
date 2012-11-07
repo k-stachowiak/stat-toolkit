@@ -18,7 +18,17 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <cstdio>
+#include <algorithm>
+using std::find;
+
+#include <map>
+using std::map;
+
+#include <set>
+using std::set;
+
+#include <string>
+using std::string;
 
 #include <iostream>
 using std::istream;
@@ -26,12 +36,6 @@ using std::ostream;
 using std::cin;
 using std::cout;
 using std::endl;
-
-#include <set>
-using std::set;
-
-#include <cstring>
-using std::strcpy;
 
 #include <boost/xpressive/xpressive.hpp>
 using boost::xpressive::sregex;
@@ -43,51 +47,23 @@ using boost::xpressive::_s;
 using boost::xpressive::_;
 using boost::xpressive::eos;
 
-#include <boost/unordered_set.hpp>
-using boost::unordered_set;
+#include <unistd.h>
 
 #include "util.h"
-#include "aggr_array.h"
+#include "groupby.h"
 
-#include <unistd.h>
+// Handle the command line arguments.
+// ----------------------------------
 
 struct arguments {
 	char delim;
-	bool extend_rows;
 	bool print_headers;
 	bool expect_data_header;
 	vector<vector<uint32_t>> dimensions;
-	vector<pair<uint32_t, string>> aggr_map;
+	vector<string> aggr_strs;
 };
 
-pair<uint32_t, string> parse_aggr_arg(string arg) {
-
-	smatch match;
-	sregex re = (s1 = +_d) >> +_s >> (s2 = +_) >> eos;
-
-	if(!regex_match(arg, match, re)) {
-		stringstream errorss;
-		errorss << "Failed parsing an aggregator argument \"" << arg << "\".";
-		throw errorss.str();
-	}
-
-	uint32_t index;
-	stringstream indexss;
-	indexss << match[1];
-	indexss >> index;
-	if(indexss.fail()) {
-		stringstream errorss;
-		errorss << "Failed parsing the index part of the aggregator arument \""
-			<< arg << "\".";
-		throw errorss.str();
-	}
-
-	string aggr_str(match[2]);
-
-	return make_pair(index, aggr_str);
-}
-
-vector<uint32_t> parse_dim_arg(string arg) {
+vector<uint32_t> parse_dim_arg(string const& arg) {
 
 	vector<uint32_t> result;
 	
@@ -118,33 +94,28 @@ arguments parse_args(int argc, char** argv) {
 	
 	arguments args;
 	args.delim = '\t';
-	args.extend_rows = false;
 	args.print_headers = false;
+	args.expect_data_header = false;
 
 	int c;
 	while((c = getopt(argc, argv, "a:d:D:RhH")) != -1) {
 		switch(c) {
 		case 'a':
-			args.aggr_map.push_back(parse_aggr_arg(optarg));
+			args.aggr_strs.emplace_back(optarg);
 			break;
 
 		case 'd':
 			if(string(optarg).size() != 1)
-				throw string("The delimiter is expected to be a single character.");
-
+				throw string("The delimiter is expected to be"
+						"a single character.");
 			args.delim = optarg[0];
-
 			if(!isprint(args.delim) && args.delim != '\t')
-				throw string("Cannot use the given character as a delimiter.");
-
+				throw string("Cannot use the given character"
+						"as a delimiter.");
 			break;
 
 		case 'D':
 			args.dimensions.push_back(parse_dim_arg(optarg));
-			break;
-
-		case 'R':
-			args.extend_rows = true;
 			break;
 
 		case 'h':
@@ -157,16 +128,20 @@ arguments parse_args(int argc, char** argv) {
 
 		case '?':
 			if(optopt == 'a')
-				throw string("Option -a requires an aggregator argument.");
+				throw string("Option -a requires an aggregator"
+						"argument.");
 
 			if(optopt == 'd')
-				throw string("Option -d requires a delimiter argument.");
+				throw string("Option -d requires a delimiter"
+						"argument.");
 
 			if(optopt == 'D')
-				throw string("Option -D requires a dimension argument.");
+				throw string("Option -D requires a dimension"
+						"argument.");
 
 			// Notice a fallthrough. It is here although it should
-			// not happen unless someone changes the getopt options definition.
+			// not happen unless someone changes the getopt options
+			// definition.
 
 		default:
 			throw string("Illegal option -") + (char)optopt + ".";
@@ -176,7 +151,8 @@ arguments parse_args(int argc, char** argv) {
 	return args;
 }
 
-map<uint32_t, string> process_header(istream& in, const arguments& args) {
+// Reading additional data from the input header.
+map<uint32_t, string> process_header(istream& in, arguments const& args) {
 	map<uint32_t, string> result;
 	string line;
 	getline(in, line);
@@ -186,226 +162,252 @@ map<uint32_t, string> process_header(istream& in, const arguments& args) {
 	return result;
 }
 
-void process_stream(
-		istream& in,
-		const map<uint32_t, string>& column_map,
-		const arguments& args,
-		aggr_arr::array& arr) {
+// The groupping phase.
+// --------------------
 
+groupby::groupper perform_groupping(
+		istream& in, 
+		arguments const& args) {
+
+	// Flatten the dimension definitions.
+	vector<uint32_t> groupbys;
+	for(auto const& v : args.dimensions)
+		for(auto dim : v)
+			if(find(begin(groupbys), end(groupbys), dim) == end(groupbys))
+				groupbys.push_back(dim);
+			else
+				throw string("Column index repeated in the dimension "
+						"definition.");
+
+	groupby::groupper g;
 	string line;
 	while(true) {
 		getline(in, line);
 		if(!in.good())
 			break;
 		vector<string> row = split(line, args.delim);
-		arr.consume_row(row, args.expect_data_header, column_map);
+		g.consume_row(groupbys, args.aggr_strs, row);
 	}
+
+	return g;
 }
 
-template<class COLLECTION>
-vector<aggr_arr::coord> sort_coords(const COLLECTION& collection) {
-	vector<aggr_arr::coord> result(begin(collection), end(collection));
-	sort(begin(result), end(result), aggr_arr::coord_compare);
+// The arrangement and printing phase.
+// -----------------------------------
+
+vector<groupby::group_result> sort_group_results(
+		vector<groupby::group_result> const& results,
+		arguments const& args) {
+
+	// Copy the input collection.
+	vector<groupby::group_result> groups(begin(results), end(results));
+
+	// Sort the group by the dimensions.
+	sort(begin(groups), end(groups),
+			[&args](groupby::group_result const& lhs,
+				groupby::group_result const& rhs) {
+
+		for(auto const& dim : args.dimensions) {
+
+			// Compare the values from the columns determined by the
+			// dimension; return at the forst that is not equal for the
+			// both groups.
+			for(auto const& i : dim) {
+				const string& l = lhs.get_def_at(i);	
+				const string& r = rhs.get_def_at(i);	
+				if(l != r)
+					return l < r;
+			}
+		}
+
+		// Getting here means that the group definitions are equal, which
+		// is by no means legal.
+		throw string("Attempted comparing groups defined equally.");
+	});
+
+	return groups;
+}
+
+typedef vector<pair<uint32_t, string>> dim_t;
+
+inline
+dim_t get_group_dim(groupby::group_result const& grp, vector<uint32_t> const& dim) {
+	vector<pair<uint32_t, string>> result;
+	for(uint32_t col : dim)
+		result.emplace_back(col, grp.get_def_at(col));
 	return result;
 }
 
-void print_page(const unordered_map<aggr_arr::coord,
-			unordered_map<aggr_arr::coord,
-				map<string, double>>>& page,
-		ostream& out,
-		const map<uint32_t, string>& column_map,
-		const arguments& args) {
-
-	// Gather all the dimensions.
-	// --------------------------
-	unordered_set<aggr_arr::coord> all_row_coords;
-	unordered_set<aggr_arr::coord> all_column_coords;
-	unordered_set<string> all_aggr_names;
-
-	for(const auto& rcoord_columns : page) {
-		all_row_coords.insert(rcoord_columns.first);
-		for(const auto& ccoord_aggrs : rcoord_columns.second) {
-			all_column_coords.insert(ccoord_aggrs.first);
-			for(const auto& name_value : ccoord_aggrs.second)
-				all_aggr_names.insert(name_value.first);
-		}
-	}
-
-	// Print the values in the correct order.
-	// --------------------------------------
-	
-	// Note that the end-lines will be printed more often for the case
-	// of the extended rows which actually shouldn't be surprising at all.
-	if(args.extend_rows) {
-
-		// Print columns header.
-		if(args.print_headers) {
-			for(const auto& c : sort_coords(all_column_coords)) {
-				if(args.expect_data_header)
-					out << c.to_string(column_map) << args.delim;
-				else
-					out << c.str() << args.delim;
-			}
-			out << endl;
-		}
-
-		// Print data.
-		for(const auto& r : sort_coords(all_row_coords)) {
-			for(const auto& a : all_aggr_names) {
-
-				// Row header.
-				if(args.print_headers) {
-					if(args.expect_data_header)
-						out << r.to_string(column_map) << "; "
-							<< a << args.delim;
-					else
-						out << r.str() << "; " << a << args.delim;
-				}
-				
-				// Row data.
-				for(const auto& c : all_column_coords)
-					out << page.at(r).at(c).at(a) << args.delim;
-
-				// Note that we do endl for each aggregator here.
-				out << endl;
-			}
-		}
-	} else {
-		
-		// Pront columns header.
-		if(args.print_headers) {
-			for(const auto& c : sort_coords(all_column_coords)) {
-				for(const auto& a : all_aggr_names) {
-					if(args.expect_data_header)
-						cout << c.to_string(column_map) << "; "
-							<< a << args.delim;
-					else
-						cout << c.str() << "; " << a << args.delim;
-				}
-			}
-			out << endl;
-		}
-
-		// Print data.
-		for(const auto& r : sort_coords(all_row_coords)) {
-
-			// Row header.
-			if(args.print_headers) {
-				if(args.expect_data_header)
-					out << r.to_string(column_map) << args.delim;
-				else
-					out << r.str() << args.delim;
-			}
-
-			// Print data.
-			for(const auto& c : sort_coords(all_column_coords)) {
-				for(const auto& a : all_aggr_names) {
-					out << page.at(r).at(c).at(a) << args.delim;
-				}
-			}
-
-			// Note that we do endl for each row here.
-			out << endl;
-		}
-	}
+inline
+string dim_caption(dim_t d) {
+	stringstream ss;
+	for(auto const& pr : d)
+		ss << pr.second << " ";
+	return ss.str();
 }
 
-void print_results(
-		const aggr_arr::array& arr,
+template<class It>
+void print_row(It grp_begin, It grp_end,
+		uint32_t dim_offset,
+		vector<dim_t> const& sorted_columns,
 		ostream& out,
-		const map<uint32_t, string>& column_map,
-		const arguments& args) {
+		arguments const& args) {
 
-	// Handle the case with the pages and without them separately.
-	
-	// The case with pages.
-	if(args.dimensions.size() == 3) {
+	// Iterate over a sorted list of the columns.
+	for(auto const& c : sorted_columns) {
 
-		// Build a 3D map.
-		unordered_map<aggr_arr::coord,
-			unordered_map<aggr_arr::coord,
-				unordered_map<aggr_arr::coord,
-					map<string, double>>>> aggrs;
+		// Determine the group to be placed in this column.
+		It grp;
+		for(grp = grp_begin; grp != grp_end; ++grp)
+			if(get_group_dim(*grp, args.dimensions[dim_offset + 1]) == c)
+				break;
 
-		// Put the results in the proper cells.
-		arr.for_each_aggr([&aggrs](
-				const aggr_arr::position& pos,
-				const string& aggr_name,
-				double aggr_value) {
-			const auto& page = pos.coordinate(0);
-			const auto& row = pos.coordinate(1);
-			const auto& column = pos.coordinate(2);
-			aggrs[page][row][column].insert(make_pair(aggr_name, aggr_value));
+		if(grp == grp_end)
+			out << "x" << args.delim;
+
+		else 
+			for(auto const& pr : grp->aggregators)
+				out << pr.second << args.delim;
+	}
+
+	out << endl;
+}
+
+template<class It>
+void print_page(It grp_begin, It grp_end,
+		uint32_t dim_offset,
+		ostream& out,
+		arguments const& args) {
+
+	// Determine the page's columns.
+	// -----------------------------
+	set<dim_t> col_set;
+	for(auto grp_it = grp_begin; grp_it != grp_end; ++grp_it)
+		col_set.insert(get_group_dim(*grp_it, args.dimensions[dim_offset + 1]));
+
+	vector<dim_t> sorted_columns(begin(col_set), end(col_set));
+	sort(begin(sorted_columns), end(sorted_columns),
+		[&args](dim_t const& lhs, dim_t const& rhs) {
+		
+			uint32_t num_defs = lhs.size();	
+
+			if(num_defs != rhs.size())
+				throw string("Attempted comparing dimensionf"
+					" of differend sizes");
+
+			for(uint32_t i = 0; i < num_defs; ++i) {
+				if(lhs.at(i).first != rhs.at(i).first)
+					return lhs.at(i).first < rhs.at(i).first;
+
+				if(lhs.at(i).second != rhs.at(i).second)
+					return lhs.at(i).second < rhs.at(i).second;
+			}
+
+			return false;
 		});
 
-		// Print each page separately.
-		for(const auto& c_page : aggrs) {
-			out << "Page " << c_page.first.str() << endl;
-			print_page(c_page.second, out, column_map, args);
+	// Print the column captions.
+	// --------------------------
+
+	// Don't print anything above the row captions.
+	out << args.delim;
+
+	// Print the captions.
+	for(dim_t const& d : sorted_columns)
+		for(string const& a : args.aggr_strs)
+			out << dim_caption(d) << ' ' << a << args.delim;
+	out << endl;
+
+	// Print all rows.
+	// ---------------
+	auto row_begin = grp_begin;
+	auto it = grp_begin;
+
+	dim_t current_row = get_group_dim(*it, args.dimensions[dim_offset]);
+	do {
+		dim_t group_row = get_group_dim(*it, args.dimensions[dim_offset]);
+		if(group_row != current_row) {
+			out << dim_caption(current_row) << args.delim;
+			print_row(row_begin, it, dim_offset, sorted_columns, out, args);
+
+			row_begin = it;
+			current_row = get_group_dim(*it, args.dimensions[dim_offset]);
 		}
 
-	// The case without pages.
+	} while((++it) != grp_end);
+
+	out << dim_caption(current_row) << args.delim;
+	print_row(row_begin, it, dim_offset, sorted_columns, out, args);
+}
+
+void print_table(groupby::groupper const& g, ostream& out, arguments const& args) {
+
+	auto sorted_groups = sort_group_results(g.copy_result(), args);
+
+	if(args.dimensions.size() == 2) {
+
+		// Print just one page.
+		// --------------------
+		print_page(begin(sorted_groups), end(sorted_groups), 0, out, args);
+
+	} else if(args.dimensions.size() == 3) {
+
+		// Print all the pages.
+		// --------------------
+
+		auto page_begin = begin(sorted_groups);
+		auto it = begin(sorted_groups);
+
+		dim_t current_page = get_group_dim(*it, args.dimensions[0]);
+		do {
+			dim_t group_page = get_group_dim(*it, args.dimensions[0]);
+
+			// Check if we've entered another page.
+			if(group_page != current_page) {
+
+				// Print current page.
+				out << "Page: " << dim_caption(current_page) << endl;
+				print_page(page_begin, it, 1, out, args);
+
+				// Begin another page.
+				page_begin = it;
+				current_page = get_group_dim(*it, args.dimensions[0]);
+			}
+
+		} while((++it) != end(sorted_groups));
+
+		// Finalize the remaining page.
+		out << "Page: " << dim_caption(current_page) << endl;
+		print_page(page_begin, it, 1, out, args);
+
 	} else {
-		// 2 dimensions assumed due to the check from outside this
-		// function.
-
-		// Build a 2D map.
-		unordered_map<aggr_arr::coord,
-			unordered_map<aggr_arr::coord,
-				map<string, double>>> aggrs;
-
-		// Put the results in the proper cells.
-		arr.for_each_aggr([&aggrs](
-				const aggr_arr::position& pos,
-				const string& aggr_name,
-				double aggr_value) {
-			const auto& row= pos.coordinate(0);
-			const auto& column = pos.coordinate(1);
-			aggrs[row][column].insert(make_pair(aggr_name, aggr_value));
-		});
-
-		// Only one page to be printed.
-		print_page(aggrs, out, column_map, args);
+		throw string("Only 2 or 3 dimensions supported.");
 	}
 }
 
 int main(int argc, char** argv) {
-
-	// Don't print internal getopt error messages.
-	opterr = 0;
-
 	try {
 		// Parse and validate the arguments.
 		arguments args = parse_args(argc, argv);
-		if(args.aggr_map.empty())
+		if(args.aggr_strs.empty())
 			throw string("At leas one aggregator must be defined.");
 
 		if(args.dimensions.size() != 2 && args.dimensions.size() != 3)
 			throw string("Only 2 or 3 dimensions are supported.");
 
-		// Initialize the array.
-		aggr_arr::array arr(args.dimensions, args.aggr_map);
-
-		// Process header if required.
-		// Note that if the mapping is not expected the variable will
-		// be empty, yet it is still passed to maintain the concise
-		// interface of the further processing procedures.
+		// Headers variant.
 		map<uint32_t, string> mapping;
 		if(args.expect_data_header)
 			mapping = process_header(cin, args);
-		
-		// Fill the array with the data from the stdin.
-		process_stream(cin, mapping, args, arr);
 
-		// Format and print the results.
-		print_results(arr, cout, mapping, args);
+		// Perform the processing.
+		groupby::groupper g = perform_groupping(cin, args);
+		print_table(g, cout, args);
 
 		return 0;
-	
+
 	} catch(string ex) {
 		cout << "Error : " << ex << endl;
 		return 1;
 	}
-
-	return 0;
 }

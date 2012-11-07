@@ -17,14 +17,13 @@ xfiles: xfiles.cpp
 
 all: test cli doc
 
-test: aggr_test histogram_test groupby_test aggr_array_test
+test: aggr_test histogram_test
 
-cli: aggr histogram groupby pivot pivot2
+cli: aggr histogram groupby pivot
 	cp aggr $(DISTDIR)/
 	cp histogram $(DISTDIR)/
 	cp groupby $(DISTDIR)/
 	cp pivot $(DISTDIR)/
-	cp pivot2 $(DISTDIR)/
 	cp LICENSE $(DISTDIR)/
 
 doc: manual
@@ -38,20 +37,17 @@ clean: clean_test clean_cli clean_doc
 clean_test:
 	rm -f aggr_test
 	rm -f histogram_test
-	rm -f groupby_test
 
 clean_cli:
 	rm -f $(DISTDIR)/aggr
 	rm -f $(DISTDIR)/histogram
 	rm -f $(DISTDIR)/groupby
 	rm -f $(DISTDIR)/pivot
-	rm -f $(DISTDIR)/pivot2
 	rm -f $(DISTDIR)/LICENSE
 	rm -f aggr
 	rm -f histogram
 	rm -f groupby 
 	rm -f pivot
-	rm -f pivot2
 
 clean_doc:
 	rm -f $(DISTDIR)/manual.pdf
@@ -74,11 +70,8 @@ histogram: histogram.cpp histogram.h
 groupby: groupby.cpp groupby.h aggr.h util.h
 	$(CXX) $(LIBS) -o groupby groupby.cpp
 
-pivot: pivot.cpp aggr_array.h util.h aggr.h
+pivot: pivot.cpp groupby.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
-
-pivot2: pivot2.cpp groupby.h aggr.h
-	$(CXX) $(LIBS) -o pivot2 pivot2.cpp
 
 # ------
 # Tests.
@@ -91,14 +84,6 @@ aggr_test: aggr_test.cpp aggr.h
 histogram_test: histogram_test.cpp histogram.h
 	$(CXX) -o histogram_test histogram_test.cpp $(LIBS) -lUnitTest++
 	./histogram_test
-
-groupby_test: groupby_test.cpp groupby.h aggr.h util.h
-	$(CXX) -o groupby_test groupby_test.cpp $(LIBS) -lUnitTest++
-	./groupby_test
-	
-aggr_array_test: aggr_array_test.cpp aggr_array.h util.h aggr.h
-	$(CXX) -o aggr_array_test aggr_array_test.cpp $(LIBS) -lUnitTest++
-	./aggr_array_test
 
 # --------------
 # Documentation.

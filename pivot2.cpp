@@ -24,6 +24,9 @@ using std::find;
 #include <map>
 using std::map;
 
+#include <set>
+using std::set;
+
 #include <string>
 using std::string;
 
@@ -245,11 +248,29 @@ string dim_caption(dim_t d) {
 
 template<class It>
 void print_row(It grp_begin, It grp_end,
+		uint32_t dim_offset,
 		vector<dim_t> const& sorted_columns,
 		ostream& out,
 		arguments const& args) {
 
-	throw string("Unimplemented method.");
+	// Iterate over a sorted list of the columns.
+	for(auto const& c : sorted_columns) {
+
+		// Determine the group to be placed in this column.
+		It grp;
+		for(grp = grp_begin; grp != grp_end; ++grp)
+			if(get_group_dim(*grp, args.dimensions[dim_offset + 1]) == c)
+				break;
+
+		if(grp == grp_end)
+			out << "x" << args.delim;
+
+		else 
+			for(auto const& pr : grp->aggregators)
+				out << pr.second << args.delim;
+	}
+
+	out << endl;
 }
 
 template<class It>
@@ -267,18 +288,35 @@ void print_page(It grp_begin, It grp_end,
 	vector<dim_t> sorted_columns(begin(col_set), end(col_set));
 	sort(begin(sorted_columns), end(sorted_columns),
 		[&args](dim_t const& lhs, dim_t const& rhs) {
+		
 			uint32_t num_defs = lhs.size();	
+
 			if(num_defs != rhs.size())
-				throw string("Attempted comparing dimensionf of differend sizes");
+				throw string("Attempted comparing dimensionf"
+					" of differend sizes");
+
 			for(uint32_t i = 0; i < num_defs; ++i) {
 				if(lhs.at(i).first != rhs.at(i).first)
-					return lhs.at(i).first < rhs.at(i).first
+					return lhs.at(i).first < rhs.at(i).first;
+
 				if(lhs.at(i).second != rhs.at(i).second)
-					return lhs.at(i).second < rhs.at(i).second
+					return lhs.at(i).second < rhs.at(i).second;
 			}
 
 			return false;
 		});
+
+	// Print the column captions.
+	// --------------------------
+
+	// Don't print anything above the row captions.
+	out << args.delim;
+
+	// Print the captions.
+	for(dim_t const& d : sorted_columns)
+		for(string const& a : args.aggr_strs)
+			out << dim_caption(d) << ' ' << a << args.delim;
+	out << endl;
 
 	// Print all rows.
 	// ---------------
@@ -289,8 +327,8 @@ void print_page(It grp_begin, It grp_end,
 	do {
 		dim_t group_row = get_group_dim(*it, args.dimensions[dim_offset]);
 		if(group_row != current_row) {
-			out << dim_caption(current_row);
-			print_row(row_begin, it, sorted_columns, out, args);
+			out << dim_caption(current_row) << args.delim;
+			print_row(row_begin, it, dim_offset, sorted_columns, out, args);
 
 			row_begin = it;
 			current_row = get_group_dim(*it, args.dimensions[dim_offset]);
@@ -298,8 +336,8 @@ void print_page(It grp_begin, It grp_end,
 
 	} while((++it) != grp_end);
 
-	out << dim_caption(current_row);
-	print_row(row_begin, it, sorted_columns, out, args);
+	out << dim_caption(current_row) << args.delim;
+	print_row(row_begin, it, dim_offset, sorted_columns, out, args);
 }
 
 void print_table(groupby::groupper const& g, ostream& out, arguments const& args) {

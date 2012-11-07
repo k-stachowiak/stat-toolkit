@@ -56,22 +56,21 @@ using boost::xpressive::eos;
 // ----------------------------------
 
 struct arguments {
-	char delim;
-	bool print_headers;
-	bool expect_data_header;
-	vector<vector<uint32_t>> dimensions;
-	vector<string> aggr_strs;
+	char delim;				// The input/output field separator.
+	bool print_headers;			// Print row/column captions?
+	bool expect_data_header;		// Expect column captions in 1st row?
+	vector<vector<uint32_t>> dimensions;	// Pivot dimension definitions.
+	vector<string> aggr_strs;		// Aggregators' construction strings.
 };
 
+// Peals out a single dimension definition which is expected to be a
+// list of whitespace separated numbers indicating the indices of the
+// columns to define a given dimension.
 vector<uint32_t> parse_dim_arg(string const& arg) {
-
 	vector<uint32_t> result;
-	
 	uint32_t index;
-
 	char base_str[arg.size() + 1];
 	strcpy(base_str, arg.c_str());
-
 	char* pch = strtok(base_str, " ");
 	while(pch) {
 		stringstream converter;
@@ -82,14 +81,13 @@ vector<uint32_t> parse_dim_arg(string const& arg) {
 			errorss << "Failed parsing dimension index \"" << pch << "\".";
 			throw errorss.str();
 		}
-
 		result.push_back(index);
 		pch = strtok(0, " ");
 	}
-
 	return result;
 }
 
+// Prepare the structure storing semantically defined input arguments.
 arguments parse_args(int argc, char** argv) {
 	
 	arguments args;
@@ -230,22 +228,71 @@ vector<groupby::group_result> sort_group_results(
 
 typedef vector<pair<uint32_t, string>> dim_t;
 
-inline
-dim_t get_group_dim(groupby::group_result const& grp, vector<uint32_t> const& dim) {
+// Creates an object defining a given dimension of a given group.
+inline dim_t group_dim(
+		groupby::group_result const& grp,
+		vector<uint32_t> const& dim) {
 	vector<pair<uint32_t, string>> result;
 	for(uint32_t col : dim)
 		result.emplace_back(col, grp.get_def_at(col));
 	return result;
 }
 
-inline
-string dim_caption(dim_t d) {
+// Prints a caption based on a dimension object and an optional mapping
+// of the column indices to the corresponding column names.
+inline string dim_caption(
+		dim_t d,
+		bool has_map,
+		map<uint32_t, string> mapping) {
+
 	stringstream ss;
-	for(auto const& pr : d)
-		ss << pr.second << " ";
+	for(auto const& pr : d) {
+		if(has_map)	ss << mapping[pr.first];
+		else		ss << pr.first;
+		ss << " = " << pr.second << " ";
+	}
 	return ss.str();
 }
 
+// Prints a caption for a given aggregator.
+inline string aggr_caption(
+		string aggr_str,
+		bool has_map,
+		map<uint32_t, string> mapping) {
+
+	// Parse the aggregator construction string.
+	smatch match;
+	sregex base_re = *_s >> (s1 = +_d) >> +_s >> (s2 = +_) >> eos;
+	if(!regex_match(aggr_str, match, base_re))
+		throw string("Unrecognize aggregator string \"") + aggr_str + "\".";
+
+	uint32_t field;
+	stringstream fieldss;
+	fieldss << match[1];
+	fieldss >> field;
+
+	if(fieldss.fail())
+		throw string("Failed parsing the field mapping of ana ggregator.");
+
+	// Produce the result string.
+	stringstream ss;
+
+	if(has_map)
+		ss << match.str(2) << "(" << mapping[field] << ") ";
+	else
+		ss << match.str(2) << "(" << field << ") ";
+
+	return ss.str();
+}
+
+// Prints a row based on a range of the groupping results and a vector of the
+// column defining dimensions upon which the results are to be stretched.
+// If the given row doesn't contain a group for the given column (that may be
+// present in another row) this feature allows to gracefully provide some
+// bummer gap fillers which in turn allows to avoid confusion if values get
+// placed in a wrong column, just because its real value was missing.
+// A dimension offset is provided here as the row and column dimensions will be
+// 0 and 1 or 1 and 2 depending on whether the pages dimension is present or not.
 template<class It>
 void print_row(It grp_begin, It grp_end,
 		uint32_t dim_offset,
@@ -259,7 +306,7 @@ void print_row(It grp_begin, It grp_end,
 		// Determine the group to be placed in this column.
 		It grp;
 		for(grp = grp_begin; grp != grp_end; ++grp)
-			if(get_group_dim(*grp, args.dimensions[dim_offset + 1]) == c)
+			if(group_dim(*grp, args.dimensions[dim_offset + 1]) == c)
 				break;
 
 		if(grp == grp_end)
@@ -273,9 +320,16 @@ void print_row(It grp_begin, It grp_end,
 	out << endl;
 }
 
+// Prints a page of the pivot table based on a range of the groupping results.
+// The dimension offset argument prepare the function to work with the data that
+// may optionally have the page dimension defined which comes at the beginning
+// of the dimensions list. Therefore its presence or absence shifts the rest
+// of the dimensions (the rows and columns) one way or another.
 template<class It>
 void print_page(It grp_begin, It grp_end,
 		uint32_t dim_offset,
+		bool has_map,
+		map<uint32_t, string> mapping,
 		ostream& out,
 		arguments const& args) {
 
@@ -283,7 +337,7 @@ void print_page(It grp_begin, It grp_end,
 	// -----------------------------
 	set<dim_t> col_set;
 	for(auto grp_it = grp_begin; grp_it != grp_end; ++grp_it)
-		col_set.insert(get_group_dim(*grp_it, args.dimensions[dim_offset + 1]));
+		col_set.insert(group_dim(*grp_it, args.dimensions[dim_offset + 1]));
 
 	vector<dim_t> sorted_columns(begin(col_set), end(col_set));
 	sort(begin(sorted_columns), end(sorted_columns),
@@ -309,38 +363,60 @@ void print_page(It grp_begin, It grp_end,
 	// Print the column captions.
 	// --------------------------
 
-	// Don't print anything above the row captions.
-	out << args.delim;
-
-	// Print the captions.
-	for(dim_t const& d : sorted_columns)
-		for(string const& a : args.aggr_strs)
-			out << dim_caption(d) << ' ' << a << args.delim;
-	out << endl;
+	if(args.print_headers) {
+		// Print the row caption header.
+		for(uint32_t col : args.dimensions[dim_offset])
+			if(has_map)
+				out << mapping[col] << " ";
+			else
+				out << col << " ";
+		out << args.delim;
+		
+		// Print all the column captions.
+		for(dim_t const& d : sorted_columns)
+			for(string const& a : args.aggr_strs)
+				out << dim_caption(d, has_map, mapping) << ' '
+					<< aggr_caption(a, has_map, mapping)
+					<< args.delim;
+		out << endl;
+	}
 
 	// Print all rows.
 	// ---------------
 	auto row_begin = grp_begin;
 	auto it = grp_begin;
 
-	dim_t current_row = get_group_dim(*it, args.dimensions[dim_offset]);
+	dim_t current_row = group_dim(*it, args.dimensions[dim_offset]);
 	do {
-		dim_t group_row = get_group_dim(*it, args.dimensions[dim_offset]);
+		dim_t group_row = group_dim(*it, args.dimensions[dim_offset]);
 		if(group_row != current_row) {
-			out << dim_caption(current_row) << args.delim;
+			if(args.print_headers) {
+				for(auto const& pr : current_row)
+					out << pr.second << " ";
+				out << args.delim;
+			}
 			print_row(row_begin, it, dim_offset, sorted_columns, out, args);
 
 			row_begin = it;
-			current_row = get_group_dim(*it, args.dimensions[dim_offset]);
+			current_row = group_dim(*it, args.dimensions[dim_offset]);
 		}
 
 	} while((++it) != grp_end);
 
-	out << dim_caption(current_row) << args.delim;
+	if(args.print_headers) {
+		for(auto const& pr : current_row)
+			out << pr.second << " ";
+		out << args.delim;
+	}
 	print_row(row_begin, it, dim_offset, sorted_columns, out, args);
 }
 
-void print_table(groupby::groupper const& g, ostream& out, arguments const& args) {
+// Prints a pivot table based on the groupper or rather its resulting grouppings.
+void print_table(groupby::groupper const& g,
+		bool has_map,
+		map<uint32_t, string> mapping,
+		ostream& out,
+		arguments const& args) {
 
 	auto sorted_groups = sort_group_results(g.copy_result(), args);
 
@@ -348,7 +424,13 @@ void print_table(groupby::groupper const& g, ostream& out, arguments const& args
 
 		// Print just one page.
 		// --------------------
-		print_page(begin(sorted_groups), end(sorted_groups), 0, out, args);
+		print_page(begin(sorted_groups),
+				end(sorted_groups),
+				0,
+				has_map,
+				mapping,
+				out,
+				args);
 
 	} else if(args.dimensions.size() == 3) {
 
@@ -358,27 +440,47 @@ void print_table(groupby::groupper const& g, ostream& out, arguments const& args
 		auto page_begin = begin(sorted_groups);
 		auto it = begin(sorted_groups);
 
-		dim_t current_page = get_group_dim(*it, args.dimensions[0]);
+		dim_t current_page = group_dim(*it, args.dimensions[0]);
 		do {
-			dim_t group_page = get_group_dim(*it, args.dimensions[0]);
+			dim_t group_page = group_dim(*it, args.dimensions[0]);
 
 			// Check if we've entered another page.
 			if(group_page != current_page) {
 
 				// Print current page.
-				out << "Page: " << dim_caption(current_page) << endl;
-				print_page(page_begin, it, 1, out, args);
+				if(args.print_headers)
+					out << "Page: "
+					    << dim_caption(current_page, has_map, mapping)
+					    << endl;
+
+				print_page(page_begin,
+						it,
+						1,
+						has_map,
+						mapping,
+						out,
+						args);
 
 				// Begin another page.
 				page_begin = it;
-				current_page = get_group_dim(*it, args.dimensions[0]);
+				current_page = group_dim(*it, args.dimensions[0]);
 			}
 
 		} while((++it) != end(sorted_groups));
 
 		// Finalize the remaining page.
-		out << "Page: " << dim_caption(current_page) << endl;
-		print_page(page_begin, it, 1, out, args);
+		if(args.print_headers)
+			out << "Page: "
+			    << dim_caption(current_page, has_map, mapping)
+			    << endl;
+
+		print_page(page_begin,
+				it,
+				1,
+				has_map,
+				mapping,
+				out,
+				args);
 
 	} else {
 		throw string("Only 2 or 3 dimensions supported.");
@@ -402,7 +504,7 @@ int main(int argc, char** argv) {
 
 		// Perform the processing.
 		groupby::groupper g = perform_groupping(cin, args);
-		print_table(g, cout, args);
+		print_table(g, args.expect_data_header, mapping, cout, args);
 
 		return 0;
 

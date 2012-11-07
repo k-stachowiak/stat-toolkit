@@ -98,8 +98,13 @@ public:
 			stringstream ss;
 			ss << row[aggr.first];
 			ss >> value;
-			if(ss.fail())
-				throw string("Failed parsing a value for an aggregator.");
+			if(ss.fail()) {
+				stringstream rowss;
+				for(string const& s : row)
+					rowss << s << " ";
+				throw string("Failed parsing a value for an aggregator. "
+						"Row: " + rowss.str());
+			}
 			aggr.second->put(value);
 		}
 	}

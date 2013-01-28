@@ -17,6 +17,8 @@ xfiles: xfiles.cpp
 	$(CXX) -o xfiles xfiles.cpp
 
 all: test cli doc
+	./check.sh
+	./loc.sh
 
 test: aggr_test histogram_test
 

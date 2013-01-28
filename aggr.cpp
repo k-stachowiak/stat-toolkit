@@ -50,7 +50,7 @@ int main(int argc, char** argv) {
 		cout << aggr->get() << endl;
 
 		return 0;
-	} catch(string ex) {
+	} catch(string& ex) {
 		cout << "Error: " << ex << endl;
 		return 1;
 	}

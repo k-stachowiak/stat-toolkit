@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
 		for(const auto& pr : h.get_buckets())
 			cout << pr.first << args.delim << pr.second << endl;
 
-	} catch(string ex) {
+	} catch(string& ex) {
 		cout << ex << endl;
 		return 1;
 	}

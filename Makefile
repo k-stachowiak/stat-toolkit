@@ -20,10 +20,9 @@ all: test cli doc
 
 test: aggr_test histogram_test
 
-cli: aggr histogram Histogram groupby pivot
+cli: aggr histogram groupby pivot
 	cp aggr $(DISTDIR)/
 	cp histogram $(DISTDIR)/
-	cp Histogram $(DISTDIR)/
 	cp groupby $(DISTDIR)/
 	cp pivot $(DISTDIR)/
 	cp LICENSE $(DISTDIR)/
@@ -43,13 +42,11 @@ clean_test:
 clean_cli:
 	rm -f $(DISTDIR)/aggr
 	rm -f $(DISTDIR)/histogram
-	rm -f $(DISTDIR)/Histogram
 	rm -f $(DISTDIR)/groupby
 	rm -f $(DISTDIR)/pivot
 	rm -f $(DISTDIR)/LICENSE
 	rm -f aggr
 	rm -f histogram
-	rm -f Histogram
 	rm -f groupby 
 	rm -f pivot
 	rm -f xfiles
@@ -78,9 +75,6 @@ groupby: groupby.cpp groupby.h aggr.h util.h
 
 pivot: pivot.cpp groupby.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
-
-Histogram: Histogram.hs
-	$(HC) -o Histogram Histogram.hs
 
 # ------
 # Tests.

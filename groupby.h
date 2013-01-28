@@ -72,7 +72,7 @@ public:
 	{}
 
 	// Checks whether a given row belongs to this group.
-	bool matches_row(vector<string> const& row) {
+	bool matches_row(vector<string> const& row) const {
 		for(auto const& def : _definition)
 			if(row.at(def.first) != def.second)
 				return false;
@@ -92,7 +92,7 @@ public:
 
 	// Consumes the row, i.e. feeds all the aggregators with
 	// the values from the respective fields.
-	void consume_row(vector<string> const& row) {
+	void consume_row(vector<string> const& row) const {
 		for(auto& aggr : _aggregators) {
 			double value;
 			stringstream ss;

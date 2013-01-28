@@ -508,7 +508,7 @@ int main(int argc, char** argv) {
 
 		return 0;
 
-	} catch(string ex) {
+	} catch(string& ex) {
 		cout << "Error : " << ex << endl;
 		return 1;
 	}

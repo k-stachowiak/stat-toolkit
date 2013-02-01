@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Krzysztof Stachowiak */
+/* Copyright (C) 2012,2013 Krzysztof Stachowiak */
 
 /* 
  * This file is part of stat-toolkit.

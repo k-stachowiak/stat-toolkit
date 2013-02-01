@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Krzysztof Stachowiak */
+/* Copyright (C) 2012,2013 Krzysztof Stachowiak */
 
 /* 
  * This file is part of stat-toolkit.
@@ -75,6 +75,11 @@ public:
 	// map. It is cached so if anu value has been put in this histogram
 	// the cache must be rebuilt upon a call to this function.
 	map<double, double> get_buckets() {
+
+		// TODO: Prepare a unit test for this and refactor this function
+		// to account to the fact that the map values for non-existent
+		// keys are default initialized, and therefore there should
+		// rarely be a need to explicitly insert 0.0 into the map.
 
 		if(!_cache_valid) {
 			_cached_buckets.clear();

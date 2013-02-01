@@ -1,4 +1,4 @@
-/* Copyright (C) 2012 Krzysztof Stachowiak */
+/* Copyright (C) 2012,2013 Krzysztof Stachowiak */
 
 /* 
  * This file is part of stat-toolkit.
@@ -61,15 +61,11 @@ namespace aggr {
 	// Helper typedef.
 	typedef unique_ptr<aggregator> ptr;
 
-	// Every time this aggregator is queried, it returns the number of the inputs that
-	//  were performed so far.
+	// Count of the elements put so far.
 	class count : public aggregator {
 		int _count;
 	public:
 		count() : _count(0) {}
-	
-		// Aggregator interface.
-		// ---------------------
 		void put(double) { ++_count; }
 		double get() const { return double(_count); }
 	};
@@ -79,9 +75,6 @@ namespace aggr {
 		double _sum;
 	public:
 		sum() : _sum(0) {}
-	
-		// Aggregator interface.
-		// ---------------------
 		void put(double value) { _sum += value; }
 		double get() const { return _sum; }
 	};
@@ -92,9 +85,6 @@ namespace aggr {
 		sum _sum;
 		count _count;
 	public:
-	
-		// Aggregator interface.
-		// ---------------------
 		void put(double value) {
 			_sum.put(value);
 			_count.put(value);
@@ -116,8 +106,6 @@ namespace aggr {
 	public:
 		stdev() : _a(0), _q(0), _k(0) {}
 	
-		// Aggregator interface.
-		// ---------------------
 		void put(double value) {
 			double new_a = _a + (value - _a) / (_k + 1);
 			double new_q = _q + (value - _a) * (value - new_a);
@@ -141,8 +129,6 @@ namespace aggr {
 	public:
 		ci_gauss(double alpha) : _alpha(alpha) {}
 
-		// Aggregator interface.
-		// ---------------------
 		void put(double value) {
 			_count.put(value);
 			_mean.put(value);

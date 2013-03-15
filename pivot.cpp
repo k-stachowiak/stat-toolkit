@@ -37,6 +37,10 @@ using std::cin;
 using std::cout;
 using std::endl;
 
+#include <boost/lexical_cast.hpp>
+using boost::lexical_cast;
+using boost::bad_lexical_cast;
+
 #include <boost/xpressive/xpressive.hpp>
 using boost::xpressive::sregex;
 using boost::xpressive::smatch;
@@ -57,6 +61,7 @@ using boost::xpressive::eos;
 
 struct arguments {
 	char delim;				// The input/output field separator.
+	bool hide_domain;			// Print "dim = value" or juzt "value"?
 	bool print_headers;			// Print row/column captions?
 	bool expect_data_header;		// Expect column captions in 1st row?
 	vector<vector<uint32_t>> dimensions;	// Pivot dimension definitions.
@@ -89,14 +94,15 @@ vector<uint32_t> parse_dim_arg(string const& arg) {
 
 // Prepare the structure storing semantically defined input arguments.
 arguments parse_args(int argc, char** argv) {
-	
+
 	arguments args;
 	args.delim = '\t';
+	args.hide_domain = false;
 	args.print_headers = false;
 	args.expect_data_header = false;
 
 	int c;
-	while((c = getopt(argc, argv, "a:d:D:RhH")) != -1) {
+	while((c = getopt(argc, argv, "a:d:D:RhHn")) != -1) {
 		switch(c) {
 		case 'a':
 			args.aggr_strs.emplace_back(optarg);
@@ -114,6 +120,10 @@ arguments parse_args(int argc, char** argv) {
 
 		case 'D':
 			args.dimensions.push_back(parse_dim_arg(optarg));
+			break;
+
+		case 'n':
+			args.hide_domain = true;
 			break;
 
 		case 'h':
@@ -193,6 +203,24 @@ groupby::groupper perform_groupping(
 // The arrangement and printing phase.
 // -----------------------------------
 
+// This will attemt at a numeric comparison, and resort to the 
+// lexicographical ordering upon failure.
+bool smart_less(string const& l, string const& r) {
+
+	// Try casting to a number.
+	try {
+		double num_l = lexical_cast<double>(l);
+		double num_r = lexical_cast<double>(r);
+		return num_l < num_r;
+	} catch(bad_lexical_cast&) {
+		// Carry on...
+	}
+
+	// If we've got here, the semantic comparison
+	// must have failed. Perform lexicographical comparison.
+	return l < r;
+}
+
 vector<groupby::group_result> sort_group_results(
 		vector<groupby::group_result> const& results,
 		arguments const& args) {
@@ -208,13 +236,13 @@ vector<groupby::group_result> sort_group_results(
 		for(auto const& dim : args.dimensions) {
 
 			// Compare the values from the columns determined by the
-			// dimension; return at the forst that is not equal for the
+			// dimension; return at the first that is not equal for the
 			// both groups.
 			for(auto const& i : dim) {
 				const string& l = lhs.get_def_at(i);	
 				const string& r = rhs.get_def_at(i);	
 				if(l != r)
-					return l < r;
+					return smart_less(l, r);
 			}
 		}
 
@@ -242,14 +270,19 @@ inline dim_t group_dim(
 // of the column indices to the corresponding column names.
 inline string dim_caption(
 		dim_t d,
+		bool hide_domain,
 		bool has_map,
 		map<uint32_t, string> mapping) {
 
 	stringstream ss;
 	for(auto const& pr : d) {
-		if(has_map)	ss << mapping[pr.first];
-		else		ss << pr.first;
-		ss << " = " << pr.second << " ";
+		if(hide_domain) {
+			ss << pr.second << " ";
+		} else {
+			if(has_map) ss << mapping[pr.first];
+			else ss << pr.first;
+			ss << " = " << pr.second << " ";
+		}
 	}
 	return ss.str();
 }
@@ -272,7 +305,7 @@ inline string aggr_caption(
 	fieldss >> field;
 
 	if(fieldss.fail())
-		throw string("Failed parsing the field mapping of ana ggregator.");
+		throw string("Failed parsing the field mapping of an ggregator.");
 
 	// Produce the result string.
 	stringstream ss;
@@ -328,6 +361,7 @@ void print_row(It grp_begin, It grp_end,
 template<class It>
 void print_page(It grp_begin, It grp_end,
 		uint32_t dim_offset,
+		bool hide_domain,
 		bool has_map,
 		map<uint32_t, string> mapping,
 		ostream& out,
@@ -375,7 +409,7 @@ void print_page(It grp_begin, It grp_end,
 		// Print all the column captions.
 		for(dim_t const& d : sorted_columns)
 			for(string const& a : args.aggr_strs)
-				out << dim_caption(d, has_map, mapping) << ' '
+				out << dim_caption(d, hide_domain, has_map, mapping) << ' '
 					<< aggr_caption(a, has_map, mapping)
 					<< args.delim;
 		out << endl;
@@ -413,6 +447,7 @@ void print_page(It grp_begin, It grp_end,
 
 // Prints a pivot table based on the groupper or rather its resulting grouppings.
 void print_table(groupby::groupper const& g,
+		bool hide_domain,
 		bool has_map,
 		map<uint32_t, string> mapping,
 		ostream& out,
@@ -427,6 +462,7 @@ void print_table(groupby::groupper const& g,
 		print_page(begin(sorted_groups),
 				end(sorted_groups),
 				0,
+				hide_domain,
 				has_map,
 				mapping,
 				out,
@@ -450,12 +486,13 @@ void print_table(groupby::groupper const& g,
 				// Print current page.
 				if(args.print_headers)
 					out << "Page: "
-					    << dim_caption(current_page, has_map, mapping)
+					    << dim_caption(current_page, hide_domain, has_map, mapping)
 					    << endl;
 
 				print_page(page_begin,
 						it,
 						1,
+						hide_domain,
 						has_map,
 						mapping,
 						out,
@@ -471,12 +508,13 @@ void print_table(groupby::groupper const& g,
 		// Finalize the remaining page.
 		if(args.print_headers)
 			out << "Page: "
-			    << dim_caption(current_page, has_map, mapping)
+			    << dim_caption(current_page, hide_domain, has_map, mapping)
 			    << endl;
 
 		print_page(page_begin,
 				it,
 				1,
+				hide_domain,
 				has_map,
 				mapping,
 				out,
@@ -504,7 +542,12 @@ int main(int argc, char** argv) {
 
 		// Perform the processing.
 		groupby::groupper g = perform_groupping(cin, args);
-		print_table(g, args.expect_data_header, mapping, cout, args);
+		print_table(g,
+			args.hide_domain,
+			args.expect_data_header,
+			mapping,
+			cout,
+			args);
 
 		return 0;
 

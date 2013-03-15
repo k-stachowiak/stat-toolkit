@@ -363,6 +363,8 @@ used separately.}.
 			The default value is the tab character.
 		\item \texttt{-D} \textit{dimension-string} -- defines one of the pivot
 			table dimensions.
+		\item \texttt{-n} -- Hides the dimension domain, so that instead of printing
+			"col = value" only prints a value.
 		\item \texttt{-h} -- Enables printing of the page, row and column
 			captions in the resulting table.
 		\item \texttt{-H} -- Read the first input row as the list of the input
@@ -411,6 +413,13 @@ used separately.}.
 	be labeled "mean(result)" instead of "mean(4)". To indicate that the first input
 	row should be interpreted as the header row providing the captions an option:
 	\texttt{-H} must be added to the command line.
+
+	\subsubsection{Customizing the dimension descriptor printing}
+	By default the dimension caption will be of a format "column = value" for each
+	of the dimension's column. This behavior may clutter the output, and therefore
+	it can be disabled. In order to hide the domain of the dimension descriptor so that
+	they will only consist of a "value" string for each of the dimension's columns
+	append a \texttt{-n} option.
 
 	\paragraph{Note}
 	It may happen that for some cell in the pivot table (i.e. for a given page, row

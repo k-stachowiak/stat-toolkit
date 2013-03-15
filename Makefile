@@ -75,7 +75,7 @@ histogram: histogram.cpp histogram.h
 groupby: groupby.cpp groupby.h aggr.h util.h
 	$(CXX) $(LIBS) -o groupby groupby.cpp
 
-pivot: pivot.cpp groupby.h aggr.h
+pivot: pivot.cpp util.h groupby.h aggr.h
 	$(CXX) $(LIBS) -o pivot pivot.cpp
 
 # ------

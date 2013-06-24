@@ -1,0 +1,59 @@
+% This is part of the stat-toolkit documentation
+% Copyright (C) 2012,2013 Krzysztof Stachowiak
+% See the file FDL for copying conditions.
+
+\section{\texttt{aggr.h}}
+
+	\subsection{Summary}
+	The \texttt{aggr.h} library provides a set of classes for aggregating data.
+	All of its contents are enclosed within the \texttt{aggr} namespace. The
+	aggregation classes are derived from an abstract class \texttt{aggregator}
+	which defines the concept of an aggregator. The interface is simple and
+	consists of two functions: \texttt{put} and \texttt{get}.
+
+	\begin{itemize}
+		\item \texttt{put(value : double) : void}\\
+			This function allows storing a value in the aggregator.
+		\item \texttt{get() : double}\\
+			This function returns a value that is the result of the
+			underlying agregation.
+	\end{itemize}
+
+	The \texttt{get} function may be called at any time as the aggregators are
+	designed to compute their results dynamically. 
+
+	\paragraph{Note}
+	A convenient typedef has been placed in the \texttt{aggr} namespace to ease
+	defining types based on an abstract pointer to an aggregator:\\
+	\texttt{typedef unique\_ptr<aggregator> ptr;}
+
+	\subsubsection{Available aggregators}
+	There is a set of basic classes that the library provides:
+
+	\begin{itemize}
+		\item \texttt{count} - Counts the elements that are put into the aggregator.
+		\item \texttt{sum} - Sums the elements that are put into the aggregator.
+		\item \texttt{mean} - Computes the mean value of the input values.
+		\item \texttt{stdev} - Computes the standard deviation of the input values.
+		\item \texttt{ci\_gauss} - Computes the width of the confidence
+			interval defined based on the input data and a predefined
+			confidence level, assuming normal distribution.
+	\end{itemize}
+
+	\subsubsection{Uniform aggregators construction}
+	All the aggregators can be instantiated uniformly with use of the function:
+	\texttt{create\_from\_string(str : string) : unique\_ptr<aggregator>}.
+	It is used by all the command line tools that accept the aggregator definitions
+	from the command line arguments. The format for the string constructing an
+	aggregator is:
+	\begin{center}
+		\texttt{\textit{aggregator-name} [\texttt{aggregator-argument-list}]}
+	\end{center}
+	The function will throw a string object upon receiving an unrecognized constructor
+	string.
+
+	The aggregator names are the same as the names of the respective classes. Currently
+	only one of the aggregators requires an argument, which is the \texttt{ci\_gauss}
+	expecting a single argument - the confidence level.
+
+

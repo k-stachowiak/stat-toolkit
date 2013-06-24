@@ -1,0 +1,31 @@
+% This is part of the stat-toolkit documentation
+% Copyright (C) 2012,2013 Krzysztof Stachowiak
+% See the file FDL for copying conditions.
+
+\section{\texttt{histogram.h}}
+
+	\subsection{Summary}
+	The \texttt{histogram.h} is a simple library providing a histogram
+	analysis for a stream of data. It is configured with a width of the
+	interval for each of the histogram bars. It exposes a simple interface
+	consisting of two functions: \texttt{put} and \texttt{get\_buckets}.
+
+	\begin{itemize}
+		\item \texttt{put(value : doule) : void}\\
+			This function stores a value in the histogram.
+		\item \texttt{get\_buckets() : map<double, double>}\\
+			This function retrieves a map defining the current state
+			of the histogram. The structure maps from the intervals'
+			(buckets') centers to the counts of the values that fell
+			into them.
+	\end{itemize}
+
+	\paragraph{Note}
+	When the values are put into the histogram object, they are assigned 
+	certain buckets, which centers are computed based on the values themselves.
+	However when we retrieve the final histogram, this structure may be invalid
+	due to the existence of empty buckets. Such empty buckets must be generated
+	which has been judged a relatively complex task and therefore such result is
+	cached. Upon each call to the \texttt{put} function the cache is invalidated
+	and rebuilt when the \texttt{get\_buckets} function is called subsequently.
+

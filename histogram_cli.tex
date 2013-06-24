@@ -1,0 +1,29 @@
+% This is part of the stat-toolkit documentation
+% Copyright (C) 2012,2013 Krzysztof Stachowiak
+% See the file FDL for copying conditions.
+
+\section{\texttt{histogram}}
+
+	\subsection{All options}
+	\begin{itemize}
+		\item \texttt{-d} \textit{delimiter} -- Allows selection of a custom
+			delimiter for the output data.
+		\item \texttt{-w} \textit{bucket-width} -- Determines the width of the
+			histogram bucket. The default value is 1.0.
+	\end{itemize}
+
+	\subsection{Summary}
+	The program takes a list of numbers, one number per line and builds
+	a histogram of the provided distribution. The default bucket width is 1.0,
+	but this setting may be overriden with use of the \texttt{-w \textit{width}}
+	option.
+
+	The output consists of two columns. The first column is built of the bucket
+	center values, whereas in the second columnt the number of the results that
+	fell into the according bucket is given. By default the columns are separated
+	with the tab character, but this behavior can be altered with use of the
+	\texttt{-d \textit{delimiter}} option.
+
+	The program automatically generates empty buckets for the ranges, for which
+	there were no results, therefore the data is ready for further processing.
+

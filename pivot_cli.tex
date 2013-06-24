@@ -1,0 +1,76 @@
+% This is part of the stat-toolkit documentation
+% Copyright (C) 2012,2013 Krzysztof Stachowiak
+% See the file FDL for copying conditions.
+
+\section{\texttt{pivot}}
+
+	\subsection{All options}
+	\begin{itemize}
+		\item \texttt{-a} \textit{constr-string} -- defines an aggregator with a
+			so called construction string.
+		\item \texttt{-d} \textit{delim-char} -- defines a custom delimiter.
+			The default value is the tab character.
+		\item \texttt{-D} \textit{dimension-string} -- defines one of the pivot
+			table dimensions.
+		\item \texttt{-n} -- Hides the dimension domain, so that instead of printing
+			"col = value" only prints a value.
+		\item \texttt{-h} -- Enables printing of the page, row and column
+			captions in the resulting table.
+		\item \texttt{-H} -- Read the first input row as the list of the input
+			columns' captions.
+	\end{itemize}
+
+	\subsection{Summary}
+	This program performs a pivot table analysis of the input data. It enables
+	selecting 2 or 3 dimensions for the result space, selecting a set of the
+	aggregators and few additional minor settings.
+
+	\subsubsection{Dimensions}
+	2 or 3 dimensions can be defined. The respective cases these are: page, row
+	and column, or just row and column. Their interpretation is that all the values
+	at a given coordinate, say in the given page, come from the input rows that fultil
+	the dimension definition. Since the dimension is given by a pair: input column,
+	value, fulfuling dimension definition means that the given input data row has
+	a particular value in the column x, another particular value in the column y, etc.
+	The dimension definition is done by a \texttt{-D} option followed by a string
+	consisting of a white space separated list of the indices of the columns that are
+	to form the given dimension. The dimensions are interpreted in the order in which
+	they appear in the command line. The order is: page, row, column or just row, column
+	if only two dimensions are given.
+
+	\subsubsection{Aggregations}
+	The aggregations determine, how the values in the resulting table will be obtained.
+	Usually many values from the input rows will be directed to a given cell (defined
+	by a set of 2 or 3 coordinates). All the values are aggregated so the result may
+	be obtained. The aggregation is defined by a source column index and the aggregator
+	construction string. For the details on the aggregator construction strings see
+	the manual section for the \texttt{aggr} library.
+
+	\subsubsection{Decorating the output table}
+	Demending on the purpose the output table may or may not need to be described. If
+	we expect further processing in the pipeline it may be more convenient to only
+	print the values, whereas if the result is to be analyzed by a human, the row and
+	the column captions should be added. By default the captions(headers) are not
+	printed, but the behavior may be altered by adding an option: \texttt{-h} to the
+	command line.
+
+	\subsubsection{The input data header}
+	The input data set may or may not contain an additional header row providing
+	labels for the columns. Even though the input options (e.g. the dimension
+	definitions) is always given by the column indices, the ouptut may be more
+	readable if based on the original column captions (an aggregator may tor example
+	be labeled "mean(result)" instead of "mean(4)". To indicate that the first input
+	row should be interpreted as the header row providing the captions an option:
+	\texttt{-H} must be added to the command line.
+
+	\subsubsection{Customizing the dimension descriptor printing}
+	By default the dimension caption will be of a format "column = value" for each
+	of the dimension's column. This behavior may clutter the output, and therefore
+	it can be disabled. In order to hide the domain of the dimension descriptor so that
+	they will only consist of a "value" string for each of the dimension's columns
+	append a \texttt{-n} option.
+
+	\paragraph{Note}
+	It may happen that for some cell in the pivot table (i.e. for a given page, row
+	and column) there will be no results in the given input data. In such case an
+	``x'' character is put in the result table.

@@ -1,0 +1,115 @@
+% This is part of the stat-toolkit documentation
+% Copyright (C) 2012,2013 Krzysztof Stachowiak
+% See the file FDL for copying conditions.
+
+\section{\texttt{groupby}}
+
+	\subsection{All options}
+	\begin{itemize}
+		\item \texttt{-a} \textit{constr-string} -- defines an aggregator with a
+			so called construction string.
+		\item \texttt{-d} \textit{delim-char} -- defines a custom delimiter.
+			The default value is the tab character.
+		\item \texttt{-g} \textit{group-index} -- defines a groupping criterion.
+	\end{itemize}
+
+	\subsection{Summary}
+	The program performs SQL-like groupping aggregation of a set of data given by a
+	stream of tabuarized textual data. It is based upon the \texttt{groupby.h} library.
+
+	A stream of data rows separated with a linebreak is expected. The default
+	field separator is the tab character, but may be altered with the
+	\texttt{-d \textit{delimiter}} option. The output is defined by two sets
+	of the data processing elments: the groupping criteria and the aggregators.
+	It is required that there is at least one groupping criterion and at least one
+	aggregator defined in the command line. Note that they will appear in the output
+	in the same order in which they're given in the command line.
+
+	\subsubsection{Groupping criteria}
+	The grouppers are equivalent to the SQL's ``group by'' statements.
+	Assumed that we have selected a set of grouppers for fields f1, f2, etc.,
+	All the input data rows that have the same values in these fields will be
+	considered groupped. We will be furhter saying they belong to a single group.
+	The fields are given by indices; in order to define a groupping criterion we use
+	a \texttt{-g \textit{column-index}} option.
+
+	\subsubsection{Aggregators}
+	The aggregators define the way in which given values for the specific fields
+	are to be put together. Defining an aggregator consists in providing a
+	\texttt{-a "\textit{field-index} \textit{aggr-constr}"} option, where the
+	\textit{field-index} indicates the field that is to be aggregated by the
+	current aggregator and \textit{aggr-constr} means the string constructing
+	a given aggregator. The field index is a non-negative, zero-based index
+	of a particular column, and the constructor string is the name of the
+	aggregator followed by optional, aggregator-specific arguments. For details see
+	the aggregator construction in the manual for the \texttt{aggr.h} library.
+
+	For example in order to define an aggregator for the field 3 that will compute
+	the gaussion confidence interval at the confidence level of 0.95 the argument
+	line should be:
+
+	\texttt{... | ./groupby ... -a "3 ci\_gauss 0.95" ...}
+
+	\subsubsection{Output format}
+	Let's assume that fields \texttt{f1, f2, ...} have been chosen as the
+	grouppers and aggregators \texttt{a1, a2, ...} have been selected.
+	The results will take the following form:
+	\begin{verbatim}
+	f1 f2 ... a1 a2 ...
+	i1 i2 ... v1 v2 ...
+	i3 i4 ... v3 v4 ...
+	\end{verbatim}
+
+	... where \texttt{i1, i2, ...} -- the "indicators" -- are the labels for
+	the given fields that have been captured and \texttt{v1, v2, ...} are
+	the computed aggregated values.
+
+	\subsection{Examples}
+	Let's consider a simple dataset:
+	\begin{verbatim}
+	$cat data
+	50	4	1.0	2.0
+	50	4	3.0	4.0
+	50	6	1.0	2.0
+	50	6	3.0	4.0
+	100	4	1.0	2.0
+	100	4	3.0	4.0
+	100	6	1.0	2.0
+	100	6	3.0	4.0
+	\end{verbatim}
+
+	Let's now take a look at different results depending on the input options.
+
+	\begin{verbatim}
+	$cat data | ./groupby -g1 -a "2 sum"
+	1	"2 sum"
+	4	8
+	6	8
+	\end{verbatim}
+
+	\begin{verbatim}
+	$cat data | ./groupby -g0 -g1 -a "2 sum" -a "3 mean"
+	0	1	"2 sum"	"3 mean"
+	50	4	4	3
+	50	6	4	3
+	100	4	4	3
+	100	6	4	3
+	\end{verbatim}
+
+	\begin{verbatim}
+	$cat data | ./groupby -g1 -g0 -a "2 sum" -a "3 mean"
+	1	0	"2 sum"	"3 mean"
+	4	50	4	3
+	6	50	4	3
+	4	100	4	3
+	6	100	4	3
+	\end{verbatim}
+
+	\begin{verbatim}
+	$cat data | ./groupby -g1 -g0 -a "3 mean" -a "2 sum"
+	1	0	"3 mean"	"2 sum"
+	4	50	3	4
+	6	50	3	4
+	4	100	3	4
+	6	100	3	4
+	\end{verbatim}

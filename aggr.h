@@ -30,6 +30,9 @@ using std::stringstream;
 #include <memory>
 using std::unique_ptr;
 
+#include <limits>
+using std::numeric_limits;
+
 #include <boost/math/distributions/normal.hpp>
 using boost::math::normal;
 
@@ -69,6 +72,24 @@ namespace aggr {
 		void put(double) { ++_count; }
 		double get() const { return double(_count); }
 	};
+
+    // The minimum from the elements put so far.
+    class min : public aggregator {
+        double _min;
+    public:
+        min() : _min(numeric_limits<double>::infinity()) {}
+        void put(double value) { if(value < _min) _min = value; }
+        double get() const { return _min; }
+    };
+
+    // The maximum from the elements put so far.
+    class max : public aggregator {
+        double _max;
+    public:
+        max() : _max(-numeric_limits<double>::infinity()) {}
+        void put(double value) { if(value > _max) _max = value; }
+        double get() const { return _max; }
+    };
 
 	// Sums the numbers that have been put into it so far.
 	class sum : public aggregator {
@@ -152,6 +173,8 @@ namespace aggr {
 		// Simple, no argument cases.
 		// --------------------------
 		if(str == "count") return unique_ptr<aggregator>(new count);
+        if(str == "min") return unique_ptr<aggregator>(new min);
+        if(str == "max") return unique_ptr<aggregator>(new max);
 		if(str == "sum") return unique_ptr<aggregator>(new sum);
 		if(str == "mean") return unique_ptr<aggregator>(new mean);
 		if(str == "stdev") return unique_ptr<aggregator>(new stdev);

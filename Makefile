@@ -1,4 +1,4 @@
-CXX = g++ -O0 -g --std=gnu++0x
+CXX = g++ -O2 --std=c++11
 HC = ghc --make
 LIBS = -lboost_math_tr1
 DISTDIR = dist
